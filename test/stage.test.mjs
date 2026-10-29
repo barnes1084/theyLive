@@ -85,6 +85,9 @@ for (const seed of seeds) {
     assert.equal(carriers.length, 1, `${at}: exactly one lizard carries the portal device`);
     assert.ok(carriers[0].disguised && carriers[0].x > street.glasses.x, `${at}: carrier should be disguised, after the glasses`);
     assert.ok(street.spawns.some((sp) => sp.type === 'civilian'), `${at}: no civilians`);
+    const kids = street.spawns.filter((sp) => sp.type === 'child');
+    assert.ok(kids.length >= 4, `${at}: only ${kids.length} children on the street`);
+    assert.ok(kids.every((k) => k.lane === 0), `${at}: children belong on the street`);
 
     for (let c = 0; c < street.cols; c++) {
       // The lanes never connect: earth (or cement over earth) between them.

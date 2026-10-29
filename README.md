@@ -1,7 +1,7 @@
 # They Live
 
 A 16-bit, Contra-style run-and-gun for Android, inspired by the cult film.
-You're a construction worker with a shotgun. Somewhere on the street is a pair
+You're a drifter construction worker with a wrestler's build, a blond mullet, a white tank top and a shotgun. Somewhere on the street is a pair
 of sunglasses. Put them on and the city turns black and white, the billboards
 show their real messages (OBEY, CONSUME, SLEEP), and some of the people around
 you turn out to be lizards.
@@ -22,7 +22,14 @@ together.
 3. **The sewers.** This is where all the **weapons and hearts** are. Down here
    the lizards don't bother hiding, and they keep coming, Contra style, while
    you're below. Watch out for the sludge.
-4. **The lair.** A door at the end of either lane leads to a boss on a hover
+4. **Child snatchers.** Kids play on the street, and every so often a lizard
+   portals up next to one, grabs them and warps back down to the sewers, then
+   runs for its nest. Shoot it before it warps (it holds still for a moment
+   while the child struggles), or follow it down with the portal device and
+   shoot it there. Saved kids are beamed home safe (+500 and a bigger stage
+   bonus). If a snatcher gets away, the child is gone (-1000). The stage-clear
+   screen counts children saved and taken.
+5. **The lair.** A door at the end of either lane leads to a boss on a hover
    pod, who gets new attack patterns as you go deeper.
 
 Then the next stage starts, a bit harder. The lizards take back your shades

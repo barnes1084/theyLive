@@ -4,6 +4,7 @@
 //            and the sewers below, where they run around in their true form
 //            and the weapons and hearts are. A portal device, carried by one
 //            disguised lizard, lets the player warp between the lanes.
+//            Children play on the street; snatchers portal up to take them.
 //   boss   - a locked arena at the end of the street
 // Everything comes from (stage number, run seed), so the same pair always
 // gives the same stage. The tests check every stage can be finished.
@@ -219,9 +220,17 @@ function generateStreet(cityRng, sewerRng, diff) {
       area.spawns.push({ type: 'civilian', x, y, look, lane: 0 });
     }
   }
+  // Children playing on the street. Snatchers portal up to grab them.
+  const kids = Math.min(6, 4 + Math.floor(diff.length / 160));
+  const kidCols = openFloor(area, 0, 24, area.exit.c0 - 10).filter((c) => !area.spawns.some((sp) => Math.abs(sp.x - (c * TILE + 8)) < TILE));
+  for (let i = 0; i < kids && kidCols.length; i++) {
+    const c = kidCols[Math.floor(((i + 0.5) / kids) * kidCols.length)];
+    area.spawns.push({ type: 'child', x: c * TILE + 8, y: area.ground[0][c] * TILE, look: cityRng.int(0, 3), lane: 0 });
+  }
+
   // One disguised lizard after the glasses carries the portal device.
-  const carrierZone = area.spawns.filter((s) => s.x > (gc + 8) * TILE && s.x < length * TILE * 0.55);
-  const carrier = carrierZone.find((s) => s.disguised) || carrierZone[0] || area.spawns[area.spawns.length - 1];
+  const carrierZone = area.spawns.filter((s) => s.type !== 'child' && s.x > (gc + 8) * TILE && s.x < length * TILE * 0.55);
+  const carrier = carrierZone.find((s) => s.disguised) || carrierZone[0] || area.spawns.filter((s) => s.type !== 'child').pop();
   Object.assign(carrier, { type: 'grunt', disguised: true, carrier: true });
 
   // ---- Lizards in the sewers.

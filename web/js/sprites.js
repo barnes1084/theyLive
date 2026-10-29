@@ -65,24 +65,25 @@ const HEAD_LIZARD = [
   '....ggg.....',
 ];
 
+// The hero: hard hat, square jaw and a blond mullet down the back of his neck.
 const HEAD_PLAYER = [
   '...yyyyy....',
   '..yyyyyyy...',
   '.yyyyyyyyyy.',
-  '...hssssss..',
-  '...hsssesss.',
-  '...hssssss..',
-  '....ssss....',
+  '..hhssssss..',
+  '..hhsssesss.',
+  '.hhhssssss..',
+  '.hh.ssssss..',
 ];
 
 const HEAD_PLAYER_SHADES = [
   '...yyyyy....',
   '..yyyyyyy...',
   '.yyyyyyyyyy.',
-  '...hssssss..',
-  '...hssEEEEE.',
-  '...hssssss..',
-  '....ssss....',
+  '..hhssssss..',
+  '..hhssEEEEE.',
+  '.hhhssssss..',
+  '.hh.ssssss..',
 ];
 
 const TORSO = [
@@ -95,13 +96,14 @@ const TORSO = [
   '...pppppp...',
 ];
 
+// Wrestler build: broad bare shoulders, big arms and a white tank top.
 const TORSO_PLAYER = [
-  '...vvvvvv...',
-  '..vvvvvvvv..',
-  '..rrrrrrrr..',
-  '..vvvvvvvv..',
-  '..vvvvvvvv..',
-  '..gbbbbbbg..',
+  '.sssswwssss.',
+  'sssswwwwssss',
+  'sssswwwwwsss',
+  'ss.wwwwwww.s',
+  'ss.wwwwwww.s',
+  '.s.bbbkbbb.s',
   '...pppppp...',
 ];
 
@@ -149,6 +151,32 @@ const LEGS = {
   crouch: ['..pppppppp..', '.ppp....ppp.', '.fff....ffff'],
 };
 
+// Children: smaller, 12 x 15.
+const HEAD_CHILD = [
+  '....hhhh....',
+  '...hhhhhh...',
+  '...hsssss...',
+  '...hssesss..',
+  '....sssss...',
+  '.....ss.....',
+];
+
+const TORSO_CHILD = ['....tttt....', '...stttts...', '....tttt....', '....pppp....'];
+
+const LEGS_CHILD = {
+  stand: ['....p..p....', '....p..p....', '....f..f....', '...ff..ff...', '............'],
+  walk1: ['...p....p...', '..p......p..', '..f......f..', '.ff......ff.', '............'],
+  walk2: ['.....pp.....', '.....pp.....', '.....ff.....', '.....fff....', '............'],
+  jump: ['...pp..pp...', '...f....f...', '..ff....ff..', '............', '............'],
+};
+
+export const CHILD_LOOKS = [
+  { h: C.brown, s: C.skin, t: C.yellow, p: C.blue, f: C.red },
+  { h: C.black, s: C.skin3, t: C.red, p: C.navy, f: C.white },
+  { h: C.yellow, s: C.skin, t: C.lime, p: C.purple, f: C.darkGray },
+  { h: C.brown, s: C.skin2, t: '#f878b8', p: C.white, f: C.purple },
+];
+
 /** Full 12 x 22 body (or 12 x 16 crouching). */
 function body(head, torso, legs) {
   if (legs === 'crouch') return [...head, ...torso.slice(0, 6), ...LEGS.crouch];
@@ -172,7 +200,7 @@ const LIZARD_SKIN = { g: C.green, y: C.yellow, e: C.black, m: C.darkRed };
 /** A lizard in its own skin, as seen in the tunnels. */
 const LIZARD_BODY = { ...LIZARD_SKIN, s: C.green, t: C.green, k: C.lime, b: C.darkGreen, p: C.darkGreen, f: C.lime };
 
-const PLAYER = { y: C.yellow, h: C.brown, s: C.skin, e: C.black, E: C.black, v: C.orange, r: C.white, g: C.tan, b: C.brown, p: C.blue, f: C.brown };
+const PLAYER = { y: C.yellow, h: '#e8c058', s: '#f0a868', e: C.black, E: C.black, w: '#f4f4ee', k: C.yellow, b: C.brown, p: C.blue, f: C.brown };
 
 // ---------- Color helpers ----------
 
@@ -396,6 +424,13 @@ export function personSprite(kind, look, pose, flip) {
     const l = LOOKS[look];
     if (kind === 'disguised') return makeSprite(body(HEAD_LIZARD, TORSO, pose), { ...l, ...LIZARD_SKIN, s: C.green }, flip);
     return makeSprite(body(l.cap ? HEAD_CAP : HEAD_HUMAN, TORSO, pose), { ...l, e: C.black }, flip);
+  });
+}
+
+export function childSprite(look, pose, flip) {
+  return cached(`ch:${look}:${pose}:${flip}`, () => {
+    const legs = LEGS_CHILD[pose] || LEGS_CHILD.stand;
+    return makeSprite([...HEAD_CHILD, ...TORSO_CHILD, ...legs], { ...CHILD_LOOKS[look % CHILD_LOOKS.length], e: C.black }, flip);
   });
 }
 
@@ -692,6 +727,10 @@ for (const line of FONT.trim().split('\n')) {
   GLYPHS[ch] = rows;
 }
 
+const BIG_GLYPHS = {
+  W: ['#....#', '#....#', '#....#', '#....#', '#.##.#', '#.##.#', '#.##.#', '######', '.#..#.', '.#..#.'],
+};
+
 /** Width in world pixels of text drawn at scale 1. */
 export function textWidth(str) {
   return str.length * 4 - 1;
@@ -704,7 +743,13 @@ export function textWidth(str) {
 function glyph(ch, color, level, outline) {
   return cached(`g:${ch}:${color}:${level}:${outline}`, () => {
     let grid = GLYPHS[ch] || GLYPHS['?'];
-    for (let i = 0; i < level; i++) grid = scale2x(grid);
+    let i = 0;
+    if (BIG_GLYPHS[ch]) {
+      // Hand-drawn at 6 x 10 because the 3 x 5 version smooths into an H.
+      grid = BIG_GLYPHS[ch];
+      i = 1;
+    }
+    for (; i < level; i++) grid = scale2x(grid);
     const gw = grid[0].length;
     const gh = grid.length;
     const pad = outline ? level : 0;

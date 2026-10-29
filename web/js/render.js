@@ -5,7 +5,7 @@
 
 import { TILE, ROWS, LANE_ROWS, ARENA_COLS, T, tileAt, isSolid, laneOf } from './stage.js';
 import {
-  personSprite, playerSprite, bossSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
+  personSprite, playerSprite, childSprite, bossSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
   cachedCanvas, dropCached, makeCanvas, shade, shadeHex, mix, rgb, css, DETAIL, COLORS as C,
 } from './sprites.js';
 import { hash } from './rng.js';
@@ -82,7 +82,7 @@ export function render(ctx, g, usingTouch) {
 }
 
 function isLizard(a) {
-  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'boss';
+  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'snatcher' || a.type === 'boss';
 }
 
 // ---------- The sunglasses view ----------
@@ -768,8 +768,18 @@ function poseOf(a) {
   return 'stand';
 }
 
+function drawChild(ctx, g, a, carried) {
+  const pose = carried ? 'jump' : poseOf(a);
+  const wiggle = carried ? q(Math.sin(g.time * 18) * 1) : 0;
+  drawSprite(ctx, childSprite(a.look, pose, a.face < 0), q(a.x - 6) + wiggle, q(a.y - 15));
+}
+
 function drawActor(ctx, g, a, truthLayer) {
   if (a.type === 'boss') return drawBoss(ctx, g, a);
+  if (a.type === 'child') {
+    if (!a.carriedBy) drawChild(ctx, g, a, false);
+    return;
+  }
   let kind;
   if (a.type === 'civilian') kind = 'civilian';
   else if (!a.disguised) kind = 'lizard';
@@ -798,6 +808,11 @@ function drawActor(ctx, g, a, truthLayer) {
   }
   if (a.flash > 0) spr = flashSprite(spr);
   drawSprite(ctx, spr, x, y);
+  if (a.child) {
+    // Holding a struggling child over its head.
+    drawChild(ctx, g, a.child, true);
+    if (Math.floor(g.time * 4) % 2) drawTextOutlined(ctx, 'HELP!', a.x, a.y - 44, '#fc7460', 1, 'center');
+  }
   if (a.carrier && (a.revealed || truthLayer)) {
     // The portal device, glowing in its hand.
     const dx = flip ? x - 1 : x + 10;
@@ -878,9 +893,18 @@ function drawPlayer(ctx, g) {
   for (let i = 0; i <= 11; i += 0.5) {
     const px = q(sx + ax * i);
     const py = q(sy + ay * i);
-    let color = i < 3 ? '#f87800' : i < 5.5 ? '#7c4818' : '#30303c';
-    if (i >= 3 && i < 5.5) color = '#8c5420';
-    ctx.fillStyle = color;
+    if (i < 4) {
+      // A big bare arm: thick at the bicep, with a highlight on top.
+      const t = i < 2 ? 2.5 : 2;
+      ctx.fillStyle = '#b86c3c';
+      ctx.fillRect(px - 0.5, py - 0.5, t, t);
+      ctx.fillStyle = '#f0a868';
+      ctx.fillRect(px - 0.5, py - 0.5, t, t - 0.5);
+      ctx.fillStyle = '#ffd0a0';
+      ctx.fillRect(px - 0.5, py - 0.5, t - 0.5, P);
+      continue;
+    }
+    ctx.fillStyle = i < 5.5 ? '#8c5420' : '#30303c';
     ctx.fillRect(px, py, 1.5, 1.5);
     if (i >= 5.5) {
       ctx.fillStyle = '#8c8ca4';
@@ -1087,15 +1111,17 @@ function drawClear(ctx, g) {
   const rows = [
     ['LIZARDS EXPOSED', s.lizards],
     ['INNOCENTS HIT', s.innocents],
+    ['CHILDREN SAVED', s.saved],
+    ['CHILDREN TAKEN', s.lost],
     ['STAGE BONUS', g.clearInfo.bonus],
     ['SCORE', g.score],
   ];
-  panel(ctx, g.W / 2 - 66, 78, 132, 44, 0.5);
+  panel(ctx, g.W / 2 - 66, 78, 132, 64, 0.5);
   rows.forEach(([label, value], i) => {
     drawTextOutlined(ctx, label, g.W / 2 - 60, 82 + i * 10, '#ffffff');
     drawTextOutlined(ctx, String(value), g.W / 2 + 60, 82 + i * 10, '#ffffff', 1, 'right');
   });
-  drawMenu(ctx, g, 132);
+  drawMenu(ctx, g, 152);
 }
 
 function drawTitle(ctx, g, usingTouch) {
