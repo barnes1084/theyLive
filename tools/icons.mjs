@@ -1,8 +1,10 @@
-// Draws the app icon (a construction worker in shades) as pixel art and
-// writes the PNGs for Android and the web. Run: node tools/icons.mjs
+// Draws the app icon (a construction worker in shades) as pixel art, smoothed
+// and shaded the same way as the game's 16-bit sprites, and writes the PNGs
+// for Android and the web. Run: node tools/icons.mjs
 import fs from 'node:fs';
 import path from 'node:path';
 import zlib from 'node:zlib';
+import { scale2x, shadeGrid } from '../web/js/sprites.js';
 
 const ART = [
   '................',
@@ -23,17 +25,22 @@ const ART = [
   '..vvvvvvvvvvvv..',
 ];
 const PALETTE = {
-  '.': [16, 16, 24],
-  y: [248, 216, 0],
-  Y: [248, 184, 0],
-  h: [124, 60, 0],
-  s: [252, 184, 120],
-  E: [0, 0, 0],
-  G: [88, 216, 84],
-  m: [168, 0, 32],
-  v: [248, 120, 0],
-  r: [252, 252, 252],
+  y: '#f8d800',
+  Y: '#f8b800',
+  h: '#7c3c00',
+  s: '#fcb878',
+  E: '#101018',
+  G: '#58d854',
+  m: '#a80020',
+  v: '#f87800',
+  r: '#fcfcfc',
 };
+const SHADED = shadeGrid(scale2x(ART), PALETTE);
+
+/** Background: a dark vertical gradient. */
+function background(t) {
+  return [Math.round(36 - 24 * t), Math.round(20 - 12 * t), Math.round(60 - 36 * t)];
+}
 
 const crcTable = Array.from({ length: 256 }, (_, n) => {
   let c = n;
@@ -56,15 +63,15 @@ function chunk(type, data) {
 
 /** Icon PNG of size x size; `pad` is the border in art pixels. */
 function iconPng(size, pad) {
-  const grid = 16 + pad * 2;
+  const grid = SHADED.w + pad * 4;
   const raw = Buffer.alloc(size * (size * 3 + 1));
   for (let y = 0; y < size; y++) {
     raw[y * (size * 3 + 1)] = 0;
     for (let x = 0; x < size; x++) {
-      const gx = Math.floor((x * grid) / size) - pad;
-      const gy = Math.floor((y * grid) / size) - pad;
-      const ch = gx >= 0 && gx < 16 && gy >= 0 && gy < 16 ? ART[gy][gx] : '.';
-      const [r, g, b] = PALETTE[ch];
+      const gx = Math.floor((x * grid) / size) - pad * 2;
+      const gy = Math.floor((y * grid) / size) - pad * 2;
+      const inside = gx >= 0 && gx < SHADED.w && gy >= 0 && gy < SHADED.h;
+      const [r, g, b] = (inside && SHADED.px[gy * SHADED.w + gx]) || background(y / size);
       const o = y * (size * 3 + 1) + 1 + x * 3;
       raw[o] = r;
       raw[o + 1] = g;

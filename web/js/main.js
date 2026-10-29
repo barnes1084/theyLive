@@ -1,12 +1,12 @@
 // Boots the game: canvas sizing, the fixed-step loop, taps and audio.
 import { createGame, loadSave, VIEW_H } from './game.js';
-import { render } from './render.js';
+import { render, RES } from './render.js';
 import { input, setupInput } from './input.js';
 import { unlockAudio, setSound, setMusic } from './audio.js';
 import { ARENA_COLS, TILE } from './stage.js';
 
 const canvas = document.getElementById('screen');
-const ctx = canvas.getContext('2d', { willReadFrequently: true });
+const ctx = canvas.getContext('2d');
 
 const save = loadSave();
 setSound(save.sound);
@@ -20,8 +20,8 @@ game.onSettingsChanged = () => {
 /** The view is always VIEW_H pixels tall; its width follows the screen. */
 function resize() {
   const W = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
-  canvas.width = W;
-  canvas.height = VIEW_H;
+  canvas.width = W * RES;
+  canvas.height = VIEW_H * RES;
   game.W = W;
   if (game.areaKey === 'boss' && game.area) game.cam.x = (ARENA_COLS * TILE - W) / 2;
   const scale = Math.min(innerWidth / W, innerHeight / VIEW_H);
