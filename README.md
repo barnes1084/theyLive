@@ -1,7 +1,7 @@
 # They Live
 
 A 16-bit, Contra-style run-and-gun for Android, inspired by the cult film.
-You're a drifter construction worker with a wrestler's build, a blond mullet, a white tank top and a shotgun. Somewhere on the street is a pair
+You're a drifter construction worker with a wrestler's build, a blond mullet, a white tank top and a spread gun. Somewhere on the street is a pair
 of sunglasses. Put them on and the city turns black and white, the billboards
 show their real messages (OBEY, CONSUME, SLEEP), and some of the people around
 you turn out to be lizards.
@@ -50,11 +50,14 @@ and the portal device at the start of every stage, so you have to find them agai
 
 ### Pickups
 
-All of these are in the sewers, apart from what lizards drop.
+All of these are in the sewers, apart from what lizards drop. You start every
+run with the **spread gun**, a wide five-pellet fan; a weapon pickup replaces
+it until you grab another. Most lizards go down in one or two hits.
 
 | Pickup | What it does |
 |---|---|
 | **P** Portal device | Warp between the city and the sewers (dropped by one lizard) |
+| **M** Machine gun | Rapid fire that sweeps straight, angled up, angled down, and repeats |
 | **N** Nail gun | Fast fire, long range |
 | **T** Torch | Short-range flamethrower that passes through enemies |
 | **S** Slugs | Hard-hitting shots that pass through up to two enemies |
@@ -69,12 +72,18 @@ All of these are in the sewers, apart from what lizards drop.
 | Move / aim (8 directions) | Stick on the left | Arrows or WASD |
 | Jump (down + jump drops through scaffolding) | **A** | Z, J or Space |
 | Fire (hold) | **B** | X or K |
+| Tackle | **TACKLE** | F or H |
 | Lock and aim: stand still, the stick only aims | **LOCK** (tap to turn on, tap again to turn off) | Hold Shift or R |
 | Sunglasses | Shades button | G, C or L |
 | Portal device | Purple portal button (appears once you have it) | V, Q or E |
 | Pause | ❚❚ at the top right | P or Esc |
 
 Hold down to crouch under shots that fly straight at you.
+
+**Tackle** is a quick shoulder charge in the direction you're facing. You
+can't be hurt during it, it flattens most lizards in one hit, and tackling a
+snatcher knocks the child out of its grip so they can run away. It recharges
+in under a second and works in midair too.
 
 While locked you can aim in all eight directions without moving, including
 diagonally down, turn around in place, crouch and jump straight up. A dotted
