@@ -1,6 +1,6 @@
 # They Live
 
-An 8-bit, Contra-style run-and-gun for Android, inspired by the cult film.
+A 16-bit, Contra-style run-and-gun for Android, inspired by the cult film.
 You're a construction worker with a shotgun. Somewhere on the street is a pair
 of sunglasses. Put them on and the city turns black and white, the billboards
 show their real messages (OBEY, CONSUME, SLEEP), and some of the people around
@@ -105,8 +105,8 @@ npm run icons  # redraws the app icons
 
 - `web/js/stage.js`: endless stage generator, two lanes per level (shared with the tests)
 - `web/js/game.js`: game rules (player, weapons, glasses, portal device, enemies, boss, flow)
-- `web/js/render.js`: drawing, the black-and-white "truth" view, HUD and menus
-- `web/js/sprites.js`: pixel-art sprites, palettes and the 3x5 pixel font
+- `web/js/render.js`: drawing at twice the world resolution, parallax backgrounds, sewer lighting, the black-and-white "truth" view, HUD and menus
+- `web/js/sprites.js`: pixel-art sprites and palettes, the Scale2x/Scale3x smoothing and automatic shading that give them their 16-bit look, detailed tiles, and the pixel font
 - `web/js/audio.js`: chiptune music and sound effects made with Web Audio
 - `web/js/input.js`: keyboard and touch controls
 - `test/stage.test.mjs`: checks both lanes of every stage can be finished with the player's jump
