@@ -11,7 +11,8 @@ const BOSS_Y = ARENA_FLOOR * TILE - 90;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
-  G: { name: 'SHOTGUN', delay: 0.5 },
+  G: { name: 'SPREAD GUN', delay: 0.36 },
+  M: { name: 'MACHINE GUN', delay: 0.075 },
   N: { name: 'NAIL GUN', delay: 0.1 },
   T: { name: 'TORCH', delay: 0.05 },
   S: { name: 'SLUGS', delay: 0.42 },
@@ -20,6 +21,9 @@ export const WEAPON_INFO = {
 const AREA_TITLES = { street: 'THE STREETS', boss: 'THE LAIR' };
 const MUSIC = { street: 'city', boss: 'boss' };
 const PORTAL_COOLDOWN = 1.2;
+const TACKLE_TIME = 0.28;
+const TACKLE_SPEED = 240;
+const TACKLE_COOLDOWN = 0.7;
 
 // ---------- Saved progress ----------
 
@@ -243,6 +247,10 @@ export function createGame(save) {
       jumpBuf: 0,
       anim: 0,
       firing: 0,
+      tackle: 0,
+      tackleCd: 0,
+      tackleHit: null,
+      burstStep: 0,
     };
     if (key === 'boss') {
       g.cam.x = (ARENA_COLS * TILE - g.W) / 2;
@@ -354,7 +362,7 @@ export function createGame(save) {
 
   function hurtPlayer(force = false) {
     const p = g.player;
-    if (!force && p.inv > 0) return;
+    if (!force && (p.inv > 0 || p.tackle > 0)) return;
     if (g.mode !== 'play') return;
     g.shake = 0.25;
     if (g.armor && !force) {
@@ -488,6 +496,24 @@ export function createGame(save) {
     p.vx = p.crouch || p.planted ? 0 : dirX * RUN_SPEED;
     if (dirX) p.face = dirX;
 
+    // Tackle: a shoulder charge that plows through lizards.
+    p.tackleCd -= dt;
+    if (input.pressed.tackle && p.tackleCd <= 0 && p.tackle <= 0) {
+      p.tackle = TACKLE_TIME;
+      p.tackleCd = TACKLE_COOLDOWN;
+      p.tackleHit = new Set();
+      p.crouch = false;
+      p.h = 21;
+      sfx('tackle');
+    }
+    if (p.tackle > 0) {
+      p.tackle -= dt;
+      p.vx = p.face * TACKLE_SPEED;
+      p.planted = false;
+      if (p.vy > 0) p.vy = 0; // a midair tackle carries straight across
+      if (g.rng.chance(0.6)) burst(p.x - p.face * 6, p.y - 2, '#bcbcbc', 1, 30);
+    }
+
     p.coyote = p.onGround ? 0.08 : p.coyote - dt;
     p.jumpBuf = input.pressed.jump ? 0.12 : p.jumpBuf - dt;
     if (p.jumpBuf > 0 && p.coyote > 0) {
@@ -507,6 +533,8 @@ export function createGame(save) {
     const wasGround = p.onGround;
     applyPhysics(p, dt, area);
     if (p.onGround && !wasGround) sfx('land');
+
+    if (p.tackle > 0) tackleHits();
 
     // Contra rules: the screen only scrolls forward.
     const minX = g.cam.x + p.w / 2 + 1;
@@ -553,6 +581,30 @@ export function createGame(save) {
     return tileAt(g.area, Math.floor(b.x / TILE), Math.floor((b.y - 2) / TILE)) === T.SLUDGE;
   }
 
+  function tackleHits() {
+    const p = g.player;
+    const box = { x: p.x + p.face * 4, y: p.y, w: p.w + 10, h: p.h };
+    for (const a of g.actors) {
+      if (a.dead || a.carriedBy || isInnocent(a) || p.tackleHit.has(a) || !overlap(box, a)) continue;
+      p.tackleHit.add(a);
+      g.shake = Math.max(g.shake, 0.15);
+      burst(a.x, a.y - 12, '#fcfcfc', 8, 90);
+      if (a.type === 'boss') {
+        damageActor(a, 4);
+        p.tackle = 0;
+        p.vx = -p.face * 120;
+        p.vy = -180;
+        continue;
+      }
+      // Knocks a snatcher's grip loose so the child can run for it.
+      if (a.child) freeChild(a);
+      a.x += p.face * 12;
+      a.vy = -160;
+      damageActor(a, 3);
+      if (!a.dead) a.flash = 0.2;
+    }
+  }
+
   function gunOrigin() {
     const p = g.player;
     const shoulder = p.crouch ? p.y - 8 : p.y - 13;
@@ -570,9 +622,15 @@ export function createGame(save) {
     p.fireCd = WEAPON_INFO[g.weapon].delay;
     p.firing = 0.08;
     if (g.weapon === 'G') {
-      for (let i = -2; i <= 2; i++) shoot(i * 0.11 + (g.rng.next() - 0.5) * 0.05, 250 + g.rng.next() * 40, 0.3, 1, 'pellet');
+      // Spread gun: five pellets in a wide fan.
+      for (let i = -2; i <= 2; i++) shoot(i * 0.16 + (g.rng.next() - 0.5) * 0.04, 280 + g.rng.next() * 30, 0.42, 1, 'pellet');
       sfx('shotgun');
-      g.shake = Math.max(g.shake, 0.06);
+      g.shake = Math.max(g.shake, 0.05);
+    } else if (g.weapon === 'M') {
+      // Machine gun: rapid fire that sweeps straight, up, down, and repeats.
+      const sweep = [0, -0.22, 0.22];
+      shoot(sweep[p.burstStep++ % sweep.length], 340, 0.8, 1, 'bullet');
+      sfx('mg');
     } else if (g.weapon === 'N') {
       shoot((g.rng.next() - 0.5) * 0.06, 320, 0.7, 1, 'nail');
       sfx('nail');
@@ -610,7 +668,8 @@ export function createGame(save) {
       look: sp.look ?? 0,
       disguised: !!sp.disguised,
       revealed: !sp.disguised,
-      hp: sp.type === 'gunner' ? 4 : sp.type === 'child' ? 1 : tunnel || sp.type === 'snatcher' ? 3 : 2,
+      // A few hits at most: this is a shoot-'em-up.
+      hp: sp.type === 'child' ? 1 : sp.type === 'gunner' || sp.type === 'snatcher' || tunnel ? 2 : 1,
       walk: 0,
       timer: 1 + g.rng.next() * 2,
       fireTimer: 1 + g.rng.next() * g.stage.diff.fireDelay,

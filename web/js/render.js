@@ -707,7 +707,7 @@ function drawPortalFx(ctx, g) {
 
 // ---------- Things ----------
 
-const PICKUP_COLORS = { N: '#d83020', T: '#e87818', S: '#c02060', C: '#20a8b8', P: '#7050f0' };
+const PICKUP_COLORS = { M: '#2860d8', N: '#d83020', T: '#e87818', S: '#c02060', C: '#20a8b8', P: '#7050f0' };
 
 /** A shiny weapon capsule, 12 world px across. */
 function capsule(color) {
@@ -877,7 +877,15 @@ function drawPlayer(ctx, g) {
   if (!p) return;
   if (p.inv > 0 && g.mode === 'play' && Math.floor(g.time * 20) % 2) return;
   const flip = p.face < 0;
-  const pose = p.crouch ? 'crouch' : poseOf({ onGround: p.onGround, vx: p.vx, anim: p.anim });
+  const tackling = p.tackle > 0;
+  const pose = p.crouch || tackling ? 'crouch' : poseOf({ onGround: p.onGround, vx: p.vx, anim: p.anim });
+  if (tackling) {
+    // Speed lines behind a shoulder charge.
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.7 - i * 0.12})`;
+      ctx.fillRect(q(p.x - p.face * (10 + i * 5) - 3), q(p.y - 14 + ((i * 5) % 12)), 6 - i, P * 2);
+    }
+  }
   const spr = playerSprite(pose, g.glasses.on, flip);
   const x = q(p.x - 6);
   const y = q(p.y - (spr.h - 2 * spr.pad));
@@ -886,6 +894,7 @@ function drawPlayer(ctx, g) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x + (flip ? 5 : 4), y + 0.5, 3, P);
   }
+  if (tackling) return;
   // Arm and shotgun along the aim direction.
   const sx = p.x;
   const sy = p.crouch ? p.y - 8 : p.y - 13;
@@ -940,6 +949,15 @@ function drawBullets(ctx, g) {
       glow(ctx, x, y, 3, '#ffc040', 0.8);
       ctx.fillStyle = '#fff8c0';
       ctx.fillRect(x - 0.5, y - 0.5, 1.5, 1.5);
+    } else if (b.kind === 'bullet') {
+      const len = Math.hypot(b.vx, b.vy);
+      const dx = b.vx / len;
+      const dy = b.vy / len;
+      glow(ctx, x, y, 3.5, '#ffe060', 0.6);
+      for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = i < 2 ? '#fffbe0' : '#ffb030';
+        ctx.fillRect(q(x - dx * i * 0.7), q(y - dy * i * 0.7), 1, 1);
+      }
     } else if (b.kind === 'nail') {
       const len = Math.hypot(b.vx, b.vy);
       const dx = b.vx / len;
@@ -1154,5 +1172,5 @@ function drawTitle(ctx, g, usingTouch) {
   if (g.save.bestStage > 0) {
     drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, W / 2, H - 30, '#ffffff', 1, 'center');
   }
-  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  SHIFT LOCK AIM  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
+  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  F TACKLE  SHIFT LOCK AIM  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
 }

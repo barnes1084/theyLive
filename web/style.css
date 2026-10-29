@@ -143,6 +143,18 @@ body.no-portal #btn-portal {
   display: none;
 }
 
+#btn-tackle {
+  right: 52vh;
+  bottom: 31vh;
+  width: 17vh;
+  height: 17vh;
+  background: rgba(248, 120, 0, 0.35);
+}
+
+#btn-tackle small {
+  font-size: 2vh;
+}
+
 #btn-lock {
   right: 55vh;
   bottom: 7vh;

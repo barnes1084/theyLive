@@ -84,6 +84,14 @@ const SFX = {
     tone({ from: 320, to: 60, dur: 0.18, vol: 0.2 });
     noise({ dur: 0.15, vol: 0.3, from: 2000, to: 300 });
   },
+  mg() {
+    tone({ from: 520, to: 140, dur: 0.06, vol: 0.09 });
+    noise({ dur: 0.05, vol: 0.14, from: 3000, to: 900 });
+  },
+  tackle() {
+    noise({ dur: 0.25, vol: 0.25, filter: 'bandpass', from: 600, to: 2400 });
+    tone({ type: 'triangle', from: 90, to: 50, dur: 0.2, vol: 0.3 });
+  },
   jump: () => tone({ from: 240, to: 560, dur: 0.12, vol: 0.08 }),
   land: () => noise({ dur: 0.05, vol: 0.08, from: 600 }),
   hurt() {

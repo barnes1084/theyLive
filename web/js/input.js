@@ -1,5 +1,5 @@
 // Keyboard and touch input, merged into one set of buttons:
-// left, right, up, down, jump, fire, glasses, portal, lock, pause.
+// left, right, up, down, jump, fire, tackle, glasses, portal, lock, pause.
 // `held` is what is down right now; `pressed` is what went down this frame.
 
 const KEYS = {
@@ -12,6 +12,7 @@ const KEYS = {
   KeyC: 'glasses', KeyL: 'glasses', KeyG: 'glasses',
   KeyV: 'portal', KeyQ: 'portal', KeyE: 'portal',
   ShiftLeft: 'lock', ShiftRight: 'lock', KeyR: 'lock',
+  KeyF: 'tackle', KeyH: 'tackle',
   Escape: 'pause', KeyP: 'pause',
   Enter: 'start',
 };
@@ -21,7 +22,7 @@ export const input = {
   pressed: {},
   latch: {}, // presses too quick to still be down at the next step
   keys: {},
-  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, glasses: false, portal: false },
+  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, tackle: false, glasses: false, portal: false },
   usingTouch: false,
   // The touch lock button is a toggle: thumbs are busy, so it stays on until tapped again.
   lockToggle: false,
@@ -33,7 +34,7 @@ export const input = {
 
   /** Recomputes held/pressed; call once per game step. */
   update() {
-    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'glasses', 'portal', 'lock', 'pause', 'start'];
+    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'tackle', 'glasses', 'portal', 'lock', 'pause', 'start'];
     for (const n of names) {
       const down = this.isDown(n);
       this.pressed[n] = (down && !this.held[n]) || !!this.latch[n];

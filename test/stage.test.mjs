@@ -1,7 +1,7 @@
 // Checks generated stages are deterministic and can always be finished:
 // every area's exit is reachable from its start using the player's jump.
 import assert from 'node:assert/strict';
-import { generateStage, tileAt, isSolid, laneOf, T, ROWS, LANE_ROWS, TILE, GRAVITY, JUMP_V, RUN_SPEED } from '../web/js/stage.js';
+import { generateStage, tileAt, isSolid, laneOf, T, ROWS, LANE_ROWS, TILE, GRAVITY, JUMP_V, RUN_SPEED, WEAPONS } from '../web/js/stage.js';
 
 // How far the player can really jump, from the game's physics.
 const jumpRows = (JUMP_V * JUMP_V) / (2 * GRAVITY) / TILE;
@@ -79,7 +79,7 @@ for (const seed of seeds) {
       assert.equal(laneOf(p.y), 1, `${at}: loot belongs in the sewers`);
     }
     assert.ok(street.pickups.filter((p) => p.kind === '+').length >= 2, `${at}: not enough hearts`);
-    assert.ok(street.pickups.filter((p) => ['N', 'T', 'S'].includes(p.kind)).length >= 3, `${at}: not enough weapons`);
+    assert.ok(street.pickups.filter((p) => WEAPONS.includes(p.kind)).length >= 3, `${at}: not enough weapons`);
     assert.ok(street.glasses.x < street.cols * TILE * 0.3, 'glasses should be early');
     const carriers = street.spawns.filter((sp) => sp.carrier);
     assert.equal(carriers.length, 1, `${at}: exactly one lizard carries the portal device`);

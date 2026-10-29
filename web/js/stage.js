@@ -23,7 +23,7 @@ export const RUN_SPEED = 90;
 
 export const T = { AIR: 0, SOLID: 1, ONEWAY: 2, CRATE: 3, SLUDGE: 4 };
 
-export const WEAPONS = ['N', 'T', 'S'];
+export const WEAPONS = ['M', 'N', 'T', 'S'];
 
 const BILLBOARD_ADS = ['BUY NOW', 'NEW CAR', 'COLA', 'VACATION', 'TV 24/7', 'SALE', 'BANK ON US', 'DIET', 'MOVIES'];
 const BILLBOARD_TRUTH = ['OBEY', 'CONSUME', 'SLEEP', 'CONFORM', 'NO THOUGHT', 'SUBMIT', 'WATCH TV', 'STAY ASLEEP', 'BUY', 'DO NOT QUESTION', 'MARRY AND REPRODUCE'];
@@ -37,10 +37,10 @@ export function difficulty(stage) {
     disguiseRatio: Math.min(0.3 + 0.04 * s, 0.6),
     maxGap: stage === 1 ? 2 : 3,
     sewerSpacing: [Math.max(4, 8 - Math.floor(s / 2)), Math.max(6, 11 - Math.floor(s / 2))],
-    waveDelay: Math.max(1.4, 3.6 - 0.22 * s),
+    waveDelay: Math.max(1.0, 2.8 - 0.18 * s),
     enemySpeed: 55 + 3 * s,
     fireDelay: Math.max(1.1, 2.2 - 0.11 * s),
-    bossHp: 60 + 25 * (stage - 1),
+    bossHp: 45 + 18 * (stage - 1),
   };
 }
 
