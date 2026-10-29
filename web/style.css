@@ -126,6 +126,23 @@ body.no-shades #btn-glasses {
   opacity: 0.25;
 }
 
+#btn-portal {
+  right: 34vh;
+  bottom: 32vh;
+  width: 16vh;
+  height: 16vh;
+  background: rgba(104, 68, 252, 0.35);
+}
+
+#btn-portal svg {
+  width: 70%;
+  fill: #fff;
+}
+
+body.no-portal #btn-portal {
+  display: none;
+}
+
 #rotate {
   display: none;
   position: fixed;

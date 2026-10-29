@@ -19,7 +19,7 @@ game.onSettingsChanged = () => {
 
 /** The view is always VIEW_H pixels tall; its width follows the screen. */
 function resize() {
-  const W = Math.max(240, Math.min(420, Math.round((VIEW_H * innerWidth) / innerHeight)));
+  const W = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
   canvas.width = W;
   canvas.height = VIEW_H;
   game.W = W;
@@ -76,6 +76,7 @@ function frame(now) {
   document.body.classList.toggle('playing', playing);
   document.body.classList.toggle('no-shades', !game.glasses.have);
   document.body.classList.toggle('shades-on', game.glasses.on);
+  document.body.classList.toggle('no-portal', !game.portal.have || game.areaKey !== 'street');
   render(ctx, game, input.usingTouch || coarse);
   requestAnimationFrame(frame);
 }

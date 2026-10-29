@@ -2,7 +2,7 @@
 // scaled up by CSS). With the sunglasses on, the world turns black and white
 // and the lizards are drawn on top in color.
 
-import { TILE, ROWS, T, tileAt, isSolid } from './stage.js';
+import { TILE, ROWS, LANE_ROWS, ARENA_COLS, T, tileAt, isSolid } from './stage.js';
 import { personSprite, playerSprite, bossSprite, tileSprite, icon, drawText, drawTextOutlined, COLORS as C } from './sprites.js';
 import { hash } from './rng.js';
 import { WEAPON_INFO, VIEW_H } from './game.js';
@@ -17,7 +17,7 @@ export function render(ctx, g, usingTouch) {
 
   if (g.mode === 'title') {
     drawTitle(ctx, g, usingTouch);
-    drawMenu(ctx, g, 100);
+    drawMenu(ctx, g, 150);
     return;
   }
 
@@ -52,6 +52,7 @@ export function render(ctx, g, usingTouch) {
 
   ctx.save();
   ctx.translate(-camX, 0);
+  drawPortalFx(ctx, g);
   for (const t of g.texts) drawTextOutlined(ctx, t.text, t.x, t.y, t.color, 1, 'center');
   ctx.restore();
 
@@ -84,48 +85,51 @@ function grayscale(ctx, w, h) {
 
 // ---------- Backgrounds ----------
 
+const LANE_H = LANE_ROWS * TILE;
+
 function drawBackground(ctx, g, camX) {
-  const kind = g.area.kind;
-  if (kind === 'city') drawCitySky(ctx, g.W, camX, g.time);
-  else if (kind === 'tunnel') drawTunnelBack(ctx, g.W, camX, g.time);
-  else drawLairBack(ctx, g, camX);
+  if (g.area.kind === 'street') {
+    drawCitySky(ctx, g.W, camX, g.time);
+    drawTunnelBack(ctx, g.W, camX, g.time, LANE_H);
+  } else drawLairBack(ctx, g, camX);
 }
 
+/** The city behind the top lane, in screen rows 0..LANE_H. */
 function drawCitySky(ctx, W, camX, time) {
   ctx.fillStyle = '#3cbcfc';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, 0, W, LANE_H);
   ctx.fillStyle = '#a4e4fc';
-  ctx.fillRect(0, 100, W, H - 100);
+  ctx.fillRect(0, 76, W, LANE_H - 76);
   // Clouds
   ctx.fillStyle = C.white;
   for (let k = Math.floor((camX * 0.1) / 90) - 1; k < (camX * 0.1 + W) / 90 + 1; k++) {
-    const x = k * 90 - camX * 0.1 + (hash(k, 3) % 40);
-    const y = 18 + (hash(k, 4) % 30);
+    const x = Math.round(k * 90 - camX * 0.1 + (hash(k, 3) % 40));
+    const y = 22 + (hash(k, 4) % 22);
     ctx.fillRect(x, y, 24, 4);
     ctx.fillRect(x + 4, y - 3, 14, 3);
   }
   // Far skyline
   const far = camX * 0.25;
   for (let k = Math.floor(far / 22) - 1; k < (far + W) / 22 + 1; k++) {
-    const h = 30 + (hash(k, 11) % 55);
+    const h = 24 + (hash(k, 11) % 45);
     const x = Math.round(k * 22 - far);
     ctx.fillStyle = '#5c94fc';
-    ctx.fillRect(x, 125 - h, 20, h + 60);
+    ctx.fillRect(x, 100 - h, 20, h + 44);
     ctx.fillStyle = '#8cb8fc';
-    for (let wy = 130 - h; wy < 120; wy += 7) ctx.fillRect(x + 4, wy, 12, 2);
+    for (let wy = 105 - h; wy < 96; wy += 7) ctx.fillRect(x + 4, wy, 12, 2);
   }
   // Near buildings
   const near = camX * 0.5;
   const colors = ['#a83c1c', '#7c7c7c', '#ac7c00', '#6c4c2c', '#8c3c5c'];
   for (let k = Math.floor(near / 60) - 1; k < (near + W) / 60 + 1; k++) {
-    const h = 50 + (hash(k, 21) % 60);
+    const h = 40 + (hash(k, 21) % 50);
     const x = Math.round(k * 60 - near);
-    const top = 150 - h;
+    const top = 124 - h;
     ctx.fillStyle = colors[hash(k, 22) % colors.length];
-    ctx.fillRect(x, top, 56, h + 40);
+    ctx.fillRect(x, top, 56, LANE_H - top);
     ctx.fillStyle = C.black;
     ctx.fillRect(x, top, 56, 2);
-    for (let wy = top + 6; wy < 150; wy += 10) {
+    for (let wy = top + 6; wy < 124; wy += 10) {
       for (let wx = x + 5; wx < x + 50; wx += 9) {
         ctx.fillStyle = hash(k, wx - x, wy - top) % 4 === 0 ? '#fce0a8' : '#202030';
         ctx.fillRect(wx, wy, 5, 6);
@@ -134,19 +138,21 @@ function drawCitySky(ctx, W, camX, time) {
   }
 }
 
-function drawTunnelBack(ctx, W, camX, time) {
+/** The sewers behind the bottom lane, from screen row y0 down. */
+function drawTunnelBack(ctx, W, camX, time, y0) {
+  const h = H - y0;
   ctx.fillStyle = '#0c0c1c';
-  ctx.fillRect(0, 0, W, H);
+  ctx.fillRect(0, y0, W, h);
   const off = camX * 0.5;
   ctx.fillStyle = '#16162c';
-  for (let y = 0; y < H; y += 12) {
-    ctx.fillRect(0, y, W, 1);
+  for (let y = 0; y < h; y += 12) {
+    ctx.fillRect(0, y0 + y, W, 1);
     const shift = (y / 12) % 2 ? 12 : 0;
-    for (let x = -((off + shift) % 24); x < W; x += 24) ctx.fillRect(Math.round(x), y, 1, 12);
+    for (let x = -((off + shift) % 24); x < W; x += 24) ctx.fillRect(Math.round(x), y0 + y, 1, 12);
   }
   // Pipes
   const po = camX * 0.75;
-  for (const [y, color] of [[30, '#3c3c3c'], [44, '#2c4c2c']]) {
+  for (const [y, color] of [[y0 + 38, '#3c3c3c'], [y0 + 50, '#2c4c2c']]) {
     ctx.fillStyle = color;
     ctx.fillRect(0, y, W, 5);
     ctx.fillStyle = '#5c5c5c';
@@ -158,10 +164,10 @@ function drawTunnelBack(ctx, W, camX, time) {
     const x = Math.round(k * 128 - po + 40);
     const on = (Math.floor(time * 3) + k) % 7 !== 0;
     ctx.fillStyle = on ? C.lime : C.darkGreen;
-    ctx.fillRect(x, 56, 4, 3);
+    ctx.fillRect(x, y0 + 62, 4, 3);
     if (on) {
       ctx.fillStyle = 'rgba(88,216,84,0.12)';
-      ctx.fillRect(x - 10, 59, 24, 40);
+      ctx.fillRect(x - 10, y0 + 65, 24, 36);
     }
   }
 }
@@ -171,47 +177,47 @@ function drawLairBack(ctx, g, camX) {
   ctx.fillStyle = '#140a24';
   ctx.fillRect(0, 0, W, H);
   // The broadcast screen everyone has been watching.
-  const cx = Math.round(13 * TILE - camX);
+  const cx = Math.round((ARENA_COLS / 2) * TILE - camX);
+  const top = 30;
   ctx.fillStyle = '#3c3c3c';
-  ctx.fillRect(cx - 64, 14, 128, 70);
+  ctx.fillRect(cx - 80, top, 160, 100);
   ctx.fillStyle = '#081008';
-  ctx.fillRect(cx - 60, 18, 120, 62);
-  for (let i = 0; i < 40; i++) {
+  ctx.fillRect(cx - 76, top + 4, 152, 92);
+  for (let i = 0; i < 60; i++) {
     ctx.fillStyle = Math.random() < 0.5 ? '#1c3c1c' : '#0c200c';
-    ctx.fillRect(cx - 60 + Math.floor(Math.random() * 118), 18 + Math.floor(Math.random() * 60), 2, 1);
+    ctx.fillRect(cx - 76 + Math.floor(Math.random() * 150), top + 4 + Math.floor(Math.random() * 90), 2, 1);
   }
   ctx.fillStyle = C.white;
-  ctx.fillRect(cx - 18, 34, 36, 14);
-  ctx.fillRect(cx - 22, 38, 44, 6);
+  ctx.fillRect(cx - 24, top + 24, 48, 18);
+  ctx.fillRect(cx - 30, top + 29, 60, 8);
   ctx.fillStyle = C.green;
-  ctx.fillRect(cx - 6, 34, 12, 14);
+  ctx.fillRect(cx - 8, top + 24, 16, 18);
   ctx.fillStyle = C.black;
-  ctx.fillRect(cx - 1, 35, 2, 12);
-  if (Math.floor(g.time * 2) % 2) drawText(ctx, 'OBEY', cx, 60, C.white, 2, 'center');
+  ctx.fillRect(cx - 1, top + 25, 2, 16);
+  if (Math.floor(g.time * 2) % 2) drawText(ctx, 'OBEY', cx, top + 60, C.white, 3, 'center');
   // Pillars
   ctx.fillStyle = '#241848';
-  for (const x of [3, 10, 16, 23]) ctx.fillRect(Math.round(x * TILE - camX), 0, 10, H);
+  for (const x of [4, 13, 27, 36]) ctx.fillRect(Math.round(x * TILE - camX), 0, 10, H);
 }
 
 // ---------- Decor in world coordinates ----------
 
 function drawDecor(ctx, g, truth) {
   const area = g.area;
-  if (area.kind === 'city') {
-    for (const b of area.billboards) drawBillboard(ctx, b, truth, g.time);
-    if (!g.glasses.taken) drawChurch(ctx, area.glasses.x, area.glasses.y);
-    drawManhole(ctx, g);
-  } else if (area.kind === 'tunnel') {
-    const x = (area.exit.c0 + 1) * TILE;
-    const y = area.exit.r * TILE;
+  if (area.kind !== 'street') return;
+  for (const b of area.billboards) drawBillboard(ctx, b, truth, g.time);
+  if (!g.glasses.taken) drawChurch(ctx, area.glasses.x, area.glasses.y);
+  // The lair door, at the end of both lanes.
+  const x = (area.exit.c0 + 1) * TILE;
+  for (const lane of [0, 1]) {
+    const y = area.ground[lane][area.exit.c0 + 1] * TILE;
     ctx.fillStyle = '#3c2878';
-    ctx.fillRect(x, y - 72, 56, 72);
+    ctx.fillRect(x, y - 64, 56, 64);
     ctx.fillStyle = '#6844fc';
-    ctx.fillRect(x + 4, y - 68, 48, 68);
+    ctx.fillRect(x + 4, y - 60, 48, 60);
     ctx.fillStyle = '#000000';
-    ctx.fillRect(x + 12, y - 56, 32, 56);
-    ctx.fillStyle = Math.floor(g.time * 4) % 2 ? C.lime : C.green;
-    drawText(ctx, '>>>', x + 28, y - 64, ctx.fillStyle, 1, 'center');
+    ctx.fillRect(x + 12, y - 48, 32, 48);
+    drawText(ctx, '>>>', x + 28, y - 56, Math.floor(g.time * 4) % 2 ? C.lime : C.green, 1, 'center');
   }
 }
 
@@ -235,9 +241,8 @@ function drawBillboard(ctx, b, truth, time) {
   const w = b.w * TILE;
   const h = b.h * TILE;
   ctx.fillStyle = C.darkGray;
-  ctx.fillRect(x + 16, y + h, 3, H);
-  ctx.fillRect(x + w - 19, y + h, 3, H);
-  ctx.fillStyle = C.darkGray;
+  ctx.fillRect(x + 16, y + h, 3, LANE_H - y - h);
+  ctx.fillRect(x + w - 19, y + h, 3, LANE_H - y - h);
   ctx.fillRect(x, y, w, h);
   const bg = ['#d82800', '#0058f8', '#f87800', '#6844fc', '#00a844'][hash(b.c, 9) % 5];
   ctx.fillStyle = truth ? C.white : bg;
@@ -262,47 +267,19 @@ function drawBillboard(ctx, b, truth, time) {
 
 function drawChurch(ctx, cx, groundY) {
   const x = Math.round(cx - 30);
-  const top = groundY - 70;
+  const top = groundY - 62;
   ctx.fillStyle = '#9c9c9c';
-  ctx.fillRect(x, top + 16, 60, 54);
-  ctx.fillRect(x + 22, top, 16, 16);
+  ctx.fillRect(x, top + 14, 60, 48);
+  ctx.fillRect(x + 22, top, 16, 14);
   ctx.fillStyle = C.white;
   ctx.fillRect(x + 29, top - 10, 2, 10);
   ctx.fillRect(x + 26, top - 7, 8, 2);
   ctx.fillStyle = '#6c4c2c';
-  ctx.fillRect(x + 22, top + 46, 16, 24);
+  ctx.fillRect(x + 22, top + 40, 16, 22);
   ctx.fillStyle = '#5c94fc';
-  ctx.fillRect(x + 6, top + 26, 8, 14);
-  ctx.fillRect(x + 46, top + 26, 8, 14);
-  drawText(ctx, 'CHURCH', x + 30, top + 19, C.darkGray, 1, 'center');
-}
-
-function drawManhole(ctx, g) {
-  const e = g.area.exit;
-  const x = e.c0 * TILE;
-  const y = e.r * TILE;
-  ctx.fillStyle = '#202020';
-  ctx.fillRect(x, y, 32, H - y);
-  ctx.fillStyle = C.gray;
-  for (let ry = y + 4; ry < H; ry += 6) ctx.fillRect(x + 8, ry, 16, 2);
-  ctx.fillRect(x + 7, y, 2, H - y);
-  ctx.fillRect(x + 23, y, 2, H - y);
-  // Traffic cones
-  for (const cx of [x - 10, x + 36]) {
-    ctx.fillStyle = C.orange;
-    ctx.fillRect(cx + 2, y - 9, 2, 3);
-    ctx.fillRect(cx + 1, y - 6, 4, 3);
-    ctx.fillRect(cx, y - 3, 6, 3);
-    ctx.fillStyle = C.white;
-    ctx.fillRect(cx + 1, y - 5, 4, 1);
-  }
-  const near = Math.abs(g.player.x - x - 16) < 120;
-  if (near && Math.floor(g.time * 3) % 2) {
-    drawTextOutlined(ctx, 'DOWN', x + 16, y - 26, C.yellow, 1, 'center');
-    ctx.fillStyle = C.yellow;
-    ctx.fillRect(x + 15, y - 19, 2, 6);
-    ctx.fillRect(x + 13, y - 15, 6, 2);
-  }
+  ctx.fillRect(x + 6, top + 24, 8, 12);
+  ctx.fillRect(x + 46, top + 24, 8, 12);
+  drawText(ctx, 'CHURCH', x + 30, top + 17, C.darkGray, 1, 'center');
 }
 
 function drawTiles(ctx, g, camX) {
@@ -315,8 +292,30 @@ function drawTiles(ctx, g, camX) {
     for (let r = 0; r < ROWS; r++) {
       const t = tileAt(area, c, r);
       if (t === T.AIR) continue;
-      const top = r > 0 && !isSolid(tileAt(area, c, r - 1)) && tileAt(area, c, r - 1) !== T.SLUDGE;
-      ctx.drawImage(tileSprite(area.kind, t, top, frame), c * TILE, r * TILE);
+      // Street tiles look like the city on top and the sewers below.
+      const kind = area.kind === 'boss' ? 'boss' : r < LANE_ROWS ? 'city' : 'tunnel';
+      const above = tileAt(area, c, r - 1);
+      const top = r > 0 && r !== LANE_ROWS && !isSolid(above) && above !== T.SLUDGE;
+      ctx.drawImage(tileSprite(kind, t, top, frame), c * TILE, r * TILE);
+    }
+  }
+  if (area.kind === 'street') {
+    // A dark seam where the city's ground meets the sewer roof.
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(c0 * TILE, LANE_H, (c1 - c0 + 1) * TILE, 2);
+  }
+}
+
+/** Purple rings where the player left and arrived through a portal. */
+function drawPortalFx(ctx, g) {
+  for (const f of g.portalFx) {
+    const k = f.t / 0.5;
+    const rx = Math.round(4 + k * 14);
+    const ry = Math.round(10 + k * 6);
+    ctx.fillStyle = k < 0.5 ? '#c8b8fc' : '#6844fc';
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2 + g.time * 6;
+      ctx.fillRect(Math.round(f.x + Math.cos(a) * rx), Math.round(f.y + Math.sin(a) * ry), 2, 2);
     }
   }
 }
@@ -325,7 +324,7 @@ function drawTiles(ctx, g, camX) {
 
 function drawPickups(ctx, g, truthLayer) {
   const bob = Math.round(Math.sin(g.time * 4) * 1.5);
-  if (!truthLayer && g.area.kind === 'city' && !g.glasses.taken) {
+  if (!truthLayer && g.area.kind === 'street' && !g.glasses.taken) {
     const { x, y } = g.area.glasses;
     ctx.fillStyle = C.tan;
     ctx.fillRect(x - 7, y - 8, 14, 8);
@@ -359,7 +358,7 @@ function drawPickups(ctx, g, truthLayer) {
       ctx.fillRect(x, y, 10, 10);
       ctx.drawImage(icon('hat', C.yellow), x + 1, y + 3);
     } else {
-      ctx.fillStyle = k.kind === 'C' ? '#00a8a8' : C.red;
+      ctx.fillStyle = k.kind === 'C' ? '#00a8a8' : k.kind === 'P' ? (Math.floor(g.time * 6) % 2 ? '#6844fc' : '#9878f8') : C.red;
       ctx.fillRect(x, y, 10, 10);
       drawText(ctx, k.kind, x + 4, y + 3, C.white);
     }
@@ -397,9 +396,16 @@ function drawActor(ctx, g, a, truthLayer) {
   if (a.flash > 0) ctx.filter = 'brightness(4)';
   ctx.drawImage(sprite, x, y);
   ctx.filter = 'none';
+  if (a.carrier && (a.revealed || truthLayer)) {
+    // The portal device, glowing in its hand.
+    ctx.fillStyle = Math.floor(g.time * 8) % 2 ? '#9878f8' : '#6844fc';
+    ctx.fillRect(flip ? x - 1 : x + 10, y + 10, 4, 4);
+    ctx.fillStyle = C.white;
+    ctx.fillRect(flip ? x : x + 11, y + 11, 2, 2);
+  }
   if (truthLayer && !a.revealed) {
     // Corner brackets mark the ones still pretending.
-    ctx.fillStyle = C.lime;
+    ctx.fillStyle = a.carrier ? '#9878f8' : C.lime;
     ctx.fillRect(x - 2, y - 2, 3, 1);
     ctx.fillRect(x - 2, y - 2, 1, 3);
     ctx.fillRect(x + 11, y - 2, 3, 1);
@@ -530,11 +536,22 @@ function drawHud(ctx, g) {
     ctx.fillStyle = gl.locked ? C.red : gl.on ? C.lime : C.white;
     ctx.fillRect(15, 14, Math.round(32 * gl.meter), 3);
     if (gl.contacts) drawText(ctx, 'C', 49, 13, '#00e8e8');
-  } else if (g.area.kind === 'city' && Math.floor(g.time * 2) % 2) {
+  } else if (g.area.kind === 'street' && Math.floor(g.time * 2) % 2) {
     drawTextOutlined(ctx, 'FIND THE SHADES', 4, 14, C.yellow);
   }
+  const pt = g.portal;
+  if (pt.have && g.area.kind === 'street') {
+    ctx.fillStyle = 'rgba(0,0,0,0.5)';
+    ctx.fillRect(3, 21, 48, 7);
+    const ready = pt.cd <= 0;
+    ctx.fillStyle = ready ? '#9878f8' : C.darkGray;
+    ctx.fillRect(4, 22, 9, 5);
+    ctx.fillStyle = C.black;
+    ctx.fillRect(6, 23, 5, 3);
+    drawText(ctx, ready ? 'PORTAL' : 'CHARGING', 15, 22, ready ? '#c8b8fc' : C.gray);
+  }
 
-  const part = { city: 1, tunnel: 2, boss: 3 }[g.areaKey];
+  const part = { street: 1, boss: 2 }[g.areaKey];
   drawTextOutlined(ctx, `STAGE ${g.stageNum}-${part}`, W / 2, 4, C.white, 1, 'center');
   drawTextOutlined(ctx, String(g.score).padStart(7, '0'), W - 20, 4, C.white, 1, 'right');
   drawTextOutlined(ctx, WEAPON_INFO[g.weapon].name, W - 20, 11, C.yellow, 1, 'right');
@@ -562,9 +579,9 @@ function drawBanner(ctx, g) {
   if (t < 0.3 && Math.floor(t * 20) % 2) return;
   const W = g.W;
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
-  ctx.fillRect(0, 44, W, sub ? 30 : 20);
-  drawTextOutlined(ctx, title, W / 2, 48, C.white, 2, 'center');
-  if (sub) drawText(ctx, sub, W / 2, 64, C.yellow, 1, 'center');
+  ctx.fillRect(0, 52, W, sub ? 30 : 20);
+  drawTextOutlined(ctx, title, W / 2, 56, C.white, 2, 'center');
+  if (sub) drawText(ctx, sub, W / 2, 72, C.yellow, 1, 'center');
 }
 
 function drawMenu(ctx, g, top) {
@@ -598,22 +615,22 @@ function dim(ctx, g) {
 
 function drawPaused(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'PAUSED', g.W / 2, 24, C.white, 3, 'center');
-  drawMenu(ctx, g, 58);
+  drawTextOutlined(ctx, 'PAUSED', g.W / 2, 70, C.white, 3, 'center');
+  drawMenu(ctx, g, 110);
 }
 
 function drawGameOver(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'GAME OVER', g.W / 2, 18, C.red, 3, 'center');
-  drawText(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.W / 2, 42, C.white, 1, 'center');
-  drawText(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.W / 2, 51, C.lightGray, 1, 'center');
-  drawText(ctx, 'THEY LIVE. WE SLEEP.', g.W / 2, 62, C.lime, 1, 'center');
-  drawMenu(ctx, g, 76);
+  drawTextOutlined(ctx, 'GAME OVER', g.W / 2, 56, C.red, 3, 'center');
+  drawText(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.W / 2, 82, C.white, 1, 'center');
+  drawText(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.W / 2, 92, C.lightGray, 1, 'center');
+  drawText(ctx, 'THEY LIVE. WE SLEEP.', g.W / 2, 104, C.lime, 1, 'center');
+  drawMenu(ctx, g, 122);
 }
 
 function drawClear(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.W / 2, 18, C.yellow, 2, 'center');
+  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.W / 2, 58, C.yellow, 2, 'center');
   const s = g.stageStats;
   const rows = [
     ['LIZARDS EXPOSED', s.lizards],
@@ -622,37 +639,41 @@ function drawClear(ctx, g) {
     ['SCORE', g.score],
   ];
   rows.forEach(([label, value], i) => {
-    drawText(ctx, label, g.W / 2 - 60, 42 + i * 10, C.white);
-    drawText(ctx, String(value), g.W / 2 + 60, 42 + i * 10, C.white, 1, 'right');
+    drawText(ctx, label, g.W / 2 - 60, 82 + i * 10, C.white);
+    drawText(ctx, String(value), g.W / 2 + 60, 82 + i * 10, C.white, 1, 'right');
   });
-  drawMenu(ctx, g, 92);
+  drawMenu(ctx, g, 132);
 }
 
 function drawTitle(ctx, g, usingTouch) {
   const W = g.W;
   const cam = g.time * 12;
+  // The two worlds, one above the other, like in the game.
   drawCitySky(ctx, W, cam, g.time);
+  drawTunnelBack(ctx, W, cam, g.time, LANE_H + 16);
   ctx.fillStyle = '#5c4020';
-  ctx.fillRect(0, 150, W, H - 150);
+  ctx.fillRect(0, LANE_H - 20, W, 36);
   ctx.fillStyle = C.lightGray;
-  ctx.fillRect(0, 150, W, 5);
-
+  ctx.fillRect(0, LANE_H - 20, W, 5);
+  ctx.fillStyle = '#2c2c48';
+  ctx.fillRect(0, LANE_H + 8, W, 8);
   ctx.fillStyle = 'rgba(0,0,0,0.55)';
   ctx.fillRect(0, 0, W, H);
 
   // A billboard that flickers between the ad and the truth.
   const truth = Math.floor(g.time / 1.6) % 2 === 1 && Math.random() > 0.08;
   ctx.save();
-  ctx.translate(Math.round(W / 2 - 48), 0);
+  ctx.translate(Math.round(W / 2 - 48), 12);
   drawBillboard(ctx, { c: 0, r: 0, w: 6, h: 3, ad: 'CONSUME?', truth: 'OBEY' }, truth, g.time);
   ctx.restore();
 
-  drawTextOutlined(ctx, 'THEY LIVE', W / 2 + 2, 58, C.darkRed, 4, 'center');
-  drawTextOutlined(ctx, 'THEY LIVE', W / 2, 56, C.white, 4, 'center');
-  drawText(ctx, 'PUT ON THE SHADES. SEE THE TRUTH.', W / 2, 82, C.yellow, 1, 'center');
+  drawTextOutlined(ctx, 'THEY LIVE', W / 2 + 2, 82, C.darkRed, 5, 'center');
+  drawTextOutlined(ctx, 'THEY LIVE', W / 2, 80, C.white, 5, 'center');
+  drawText(ctx, 'PUT ON THE SHADES. SEE THE TRUTH.', W / 2, 116, C.yellow, 1, 'center');
+  drawText(ctx, 'THE LOOT IS BELOW. FIND THE PORTAL.', W / 2, 126, '#c8b8fc', 1, 'center');
 
   if (g.save.bestStage > 0) {
-    drawText(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, W / 2, 158, C.white, 1, 'center');
+    drawText(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, W / 2, H - 30, C.white, 1, 'center');
   }
-  if (!usingTouch) drawText(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  G SHADES  P PAUSE', W / 2, 168, C.lightGray, 1, 'center');
+  if (!usingTouch) drawText(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, C.lightGray, 1, 'center');
 }

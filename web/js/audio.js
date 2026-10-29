@@ -113,6 +113,11 @@ const SFX = {
     tone({ type: 'sawtooth', from: 70, to: 60, dur: 0.5, vol: 0.15 });
     tone({ type: 'square', from: 1800, to: 1700, dur: 0.4, vol: 0.03 });
   },
+  portal() {
+    tone({ type: 'sine', from: 1600, to: 120, dur: 0.35, vol: 0.18 });
+    tone({ type: 'square', from: 300, to: 1200, dur: 0.3, vol: 0.05, at: 0.05 });
+    noise({ dur: 0.3, vol: 0.12, filter: 'bandpass', from: 2500, to: 500 });
+  },
   plasma: () => tone({ type: 'sawtooth', from: 900, to: 300, dur: 0.12, vol: 0.06 }),
   reveal() {
     noise({ dur: 0.35, vol: 0.18, filter: 'highpass', from: 3000 });

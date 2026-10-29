@@ -8,17 +8,25 @@ you turn out to be lizards.
 
 ## How it plays
 
-Every stage is randomly generated, and the stages never end. Each one has three parts:
+Every stage is randomly generated, and the stages never end. The screen is
+split in two: the **city** on top and the **sewers** underneath, scrolling
+together.
 
-1. **The streets.** Pedestrians walk around, and some of them are lizards in
+1. **The city.** Pedestrians walk around, and some of them are lizards in
    disguise. Find the sunglasses (in a box outside a church) to tell them apart.
-   Shooting an innocent person costs a heart.
-2. **The sewers.** Drop down the open manhole. Down here the lizards don't
-   bother hiding, and they keep coming, Contra style. Watch out for the sludge.
-3. **The lair.** A boss on a hover pod, who gets new attack patterns as you go deeper.
+   Shooting an innocent person costs a heart. Pits are full of wet cement.
+2. **The portal device.** One disguised lizard is carrying it. With the glasses
+   on you can see it glowing purple in its hand. Kill that lizard and grab the
+   device, then use it to warp between the city and the sewers as often as you
+   like (it needs a moment to recharge between jumps).
+3. **The sewers.** This is where all the **weapons and hearts** are. Down here
+   the lizards don't bother hiding, and they keep coming, Contra style, while
+   you're below. Watch out for the sludge.
+4. **The lair.** A door at the end of either lane leads to a boss on a hover
+   pod, who gets new attack patterns as you go deeper.
 
-Then the next stage starts, a bit harder. The lizards take your shades at the
-start of every stage, so you have to find them again.
+Then the next stage starts, a bit harder. The lizards take back your shades
+and the portal device at the start of every stage, so you have to find them again.
 
 ### The sunglasses
 
@@ -29,13 +37,17 @@ start of every stage, so you have to find them again.
   you, and their mask slips for a moment.
 - Get too close to a disguised lizard and it attacks. Shoot it while it's still
   in disguise for a **SPOTTED!** bonus.
-- Hidden stashes (extra hearts, hard hats, weapons, contact lenses) only show up
-  with the glasses on.
+- The lizard carrying the portal device has purple brackets.
+- A hidden stash in the sewers (a heart, a hard hat or contact lenses) only
+  shows up with the glasses on.
 
 ### Pickups
 
+All of these are in the sewers, apart from what lizards drop.
+
 | Pickup | What it does |
 |---|---|
+| **P** Portal device | Warp between the city and the sewers (dropped by one lizard) |
 | **N** Nail gun | Fast fire, long range |
 | **T** Torch | Short-range flamethrower that passes through enemies |
 | **S** Slugs | Hard-hitting shots that pass through up to two enemies |
@@ -51,6 +63,7 @@ start of every stage, so you have to find them again.
 | Jump (down + jump drops through scaffolding) | **A** | Z, J or Space |
 | Fire (hold) | **B** | X or K |
 | Sunglasses | Shades button | G, C or L |
+| Portal device | Purple portal button (appears once you have it) | V, Q or E |
 | Pause | ❚❚ at the top right | P or Esc |
 
 Hold down to crouch under shots that fly straight at you.
@@ -90,12 +103,12 @@ npm run icons  # redraws the app icons
 
 ## Layout
 
-- `web/js/stage.js`: endless stage generator (shared with the tests)
-- `web/js/game.js`: game rules (player, weapons, glasses, enemies, boss, flow)
+- `web/js/stage.js`: endless stage generator, two lanes per level (shared with the tests)
+- `web/js/game.js`: game rules (player, weapons, glasses, portal device, enemies, boss, flow)
 - `web/js/render.js`: drawing, the black-and-white "truth" view, HUD and menus
 - `web/js/sprites.js`: pixel-art sprites, palettes and the 3x5 pixel font
 - `web/js/audio.js`: chiptune music and sound effects made with Web Audio
 - `web/js/input.js`: keyboard and touch controls
-- `test/stage.test.mjs`: checks every stage's exits can be reached with the player's jump
+- `test/stage.test.mjs`: checks both lanes of every stage can be finished with the player's jump
 - `android/`: Android app that bundles `web/` into a full-screen WebView
 - `tools/icons.mjs`: generates the launcher and web icons
