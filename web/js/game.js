@@ -7,7 +7,7 @@ import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
 const STEP = 1 / 60;
-const BOSS_Y = ARENA_FLOOR * TILE - 90;
+const BOSS_Y = ARENA_FLOOR * TILE - 78;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
@@ -31,9 +31,9 @@ const SAVE_KEY = 'theylive-save';
 
 export function loadSave() {
   try {
-    return { bestStage: 0, bestScore: 0, sound: true, music: true, ...JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') };
+    return { bestStage: 0, bestScore: 0, sound: true, music: true, view: 'close', ...JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') };
   } catch {
-    return { bestStage: 0, bestScore: 0, sound: true, music: true };
+    return { bestStage: 0, bestScore: 0, sound: true, music: true, view: 'close' };
   }
 }
 
@@ -137,7 +137,12 @@ export function createGame(save) {
     stage: null,
     areaKey: 'street',
     area: null,
-    cam: { x: 0 },
+    cam: { x: 0, y: 0 },
+    // Set by main.js from the screen size and the VIEW setting.
+    zoom: 1,
+    viewH: VIEW_H,
+    screenW: 320,
+    helpTimer: 0,
     player: null,
     actors: [],
     bullets: [],
@@ -174,9 +179,17 @@ export function createGame(save) {
         { label: 'START', action: () => g.newRun() },
         { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
         { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
+        { label: () => `VIEW: ${g.save.view === 'full' ? 'FULL' : 'CLOSE'}`, action: () => g.toggleView() },
       ],
       sel: 0,
     };
+  };
+
+  /** Close follows the player's lane zoomed in; full shows both lanes whole. */
+  g.toggleView = function () {
+    g.save.view = g.save.view === 'full' ? 'close' : 'full';
+    writeSave(g.save);
+    g.onSettingsChanged?.();
   };
 
   g.toggleSetting = function (key) {
@@ -192,6 +205,7 @@ export function createGame(save) {
     g.armor = false;
     g.weapon = 'G';
     g.glasses.contacts = false;
+    g.helpTimer = 10;
     g.startStage(1);
   };
 
@@ -253,7 +267,6 @@ export function createGame(save) {
       burstStep: 0,
     };
     if (key === 'boss') {
-      g.cam.x = (ARENA_COLS * TILE - g.W) / 2;
       const d = g.stage.diff;
       g.boss = {
         type: 'boss',
@@ -274,8 +287,30 @@ export function createGame(save) {
       };
       g.actors.push(g.boss);
     }
+    g.updateCamera(0, true);
     playMusic(MUSIC[key]);
     g.mode = 'play';
+  };
+
+  /**
+   * Moves the camera. Across, it follows the player forward only (Contra
+   * style), or tracks them in a boss arena wider than the screen. Up and
+   * down, when zoomed in, it shows the player's lane and a slice of the other.
+   */
+  g.updateCamera = function (dt, snap = false) {
+    const p = g.player;
+    if (!p || !g.area) return;
+    const areaW = g.area.cols * TILE;
+    if (g.area.kind === 'boss') {
+      g.cam.x = g.W >= areaW ? (areaW - g.W) / 2 : Math.max(0, Math.min(areaW - g.W, p.x - g.W / 2));
+    } else {
+      const target = Math.min(p.x - g.W * 0.4, areaW - g.W);
+      g.cam.x = snap ? Math.max(0, target) : Math.max(g.cam.x, target);
+    }
+    const free = VIEW_H - g.viewH;
+    let ty = 0;
+    if (free > 0) ty = g.area.kind === 'street' && laneOf(p.y) === 0 ? Math.min(free, 16) : free;
+    g.cam.y = snap ? ty : g.cam.y + (ty - g.cam.y) * Math.min(1, dt * 10);
   };
 
   /** Fades to black, swaps area, fades back in. */
@@ -331,6 +366,7 @@ export function createGame(save) {
         { label: 'RESUME', action: () => g.resume() },
         { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
         { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
+        { label: () => `VIEW: ${g.save.view === 'full' ? 'FULL' : 'CLOSE'}`, action: () => g.toggleView() },
         { label: 'QUIT RUN', action: () => g.showTitle() },
       ],
       sel: 0,
@@ -452,11 +488,13 @@ export function createGame(save) {
   function updateGlasses(dt) {
     const gl = g.glasses;
     if (!gl.have) return;
-    if (input.pressed.glasses) {
-      if (gl.on) {
-        gl.on = false;
-        sfx('glassesOff');
-      } else if (!gl.locked) {
+    // Touch swipes say on or off; the keyboard toggles.
+    const want = input.pressed.glassesOn ? 'on' : input.pressed.glassesOff ? 'off' : input.pressed.glasses ? (gl.on ? 'off' : 'on') : null;
+    if (want === 'off' && gl.on) {
+      gl.on = false;
+      sfx('glassesOff');
+    } else if (want === 'on' && !gl.on) {
+      if (!gl.locked) {
         gl.on = true;
         sfx('glassesOn');
       } else {
@@ -489,7 +527,8 @@ export function createGame(save) {
     const dirX = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
     const dirY = (input.held.down ? 1 : 0) - (input.held.up ? 1 : 0);
 
-    // Holding lock plants your feet: the stick only aims.
+    // Holding lock (or holding still on the left of a touch screen) plants
+    // your feet: direction input only aims.
     p.planted = !!input.held.lock && p.onGround;
     p.crouch = p.onGround && dirY > 0 && dirX === 0;
     p.h = p.crouch ? 13 : 21;
@@ -499,6 +538,8 @@ export function createGame(save) {
     // Tackle: a shoulder charge that plows through lizards.
     p.tackleCd -= dt;
     if (input.pressed.tackle && p.tackleCd <= 0 && p.tackle <= 0) {
+      // A touch swipe says which way.
+      if (input.tackleDir) p.face = input.tackleDir;
       p.tackle = TACKLE_TIME;
       p.tackleCd = TACKLE_COOLDOWN;
       p.tackleHit = new Set();
@@ -514,6 +555,12 @@ export function createGame(save) {
       if (g.rng.chance(0.6)) burst(p.x - p.face * 6, p.y - 2, '#bcbcbc', 1, 30);
     }
 
+    if (input.tackleDir && !input.pressed.tackle) input.tackleDir = 0;
+    // Swipe down drops through scaffolding.
+    if (input.pressed.drop && p.onGround && p.groundTile === T.ONEWAY) {
+      p.drop = 0.25;
+      p.y += 2;
+    }
     p.coyote = p.onGround ? 0.08 : p.coyote - dt;
     p.jumpBuf = input.pressed.jump ? 0.12 : p.jumpBuf - dt;
     if (p.jumpBuf > 0 && p.coyote > 0) {
@@ -1287,9 +1334,9 @@ export function createGame(save) {
     updateGlasses(dt);
     updatePlayer(dt);
     if (g.mode !== 'play' && g.mode !== 'dying') return;
+    g.updateCamera(dt);
+    if (g.helpTimer > 0) g.helpTimer -= dt;
     if (g.areaKey !== 'boss') {
-      const target = g.player.x - g.W * 0.4;
-      g.cam.x = Math.max(g.cam.x, Math.min(target, g.area.cols * TILE - g.W));
       spawnFromSpawnList();
       spawnWave(dt);
       trySnatch(dt);

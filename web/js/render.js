@@ -21,9 +21,10 @@ const q = (v) => Math.round(v * RES) / RES;
 
 let frameCount = 0;
 
-export function render(ctx, g, usingTouch) {
-  const W = g.W;
-  ctx.setTransform(RES, 0, 0, RES, 0, 0);
+export function render(ctx, g, usingTouch, input) {
+  const SW = g.screenW;
+  const screen = () => ctx.setTransform(RES, 0, 0, RES, 0, 0);
+  screen();
   ctx.imageSmoothingEnabled = false;
   g.menuRects = [];
   if (++frameCount % 120 === 0) dropCached('bld:', 40);
@@ -38,10 +39,17 @@ export function render(ctx, g, usingTouch) {
   const sx = shaking ? q((Math.random() - 0.5) * 4) : 0;
   const sy = shaking ? q((Math.random() - 0.5) * 3) : 0;
   const camX = q(g.cam.x);
+  const camY = q(g.cam.y);
   const truth = g.glasses.on;
+  // The world is drawn zoomed, with the camera's view at the top-left.
+  const world = (dx = 0, dy = 0) => {
+    const z = RES * g.zoom;
+    ctx.setTransform(z, 0, 0, z, 0, 0);
+    ctx.translate(dx, dy - camY);
+  };
 
+  world();
   const lamps = drawBackground(ctx, g, camX);
-  ctx.save();
   ctx.translate(-camX + sx, sy);
   drawDecor(ctx, g, truth);
   drawTiles(ctx, g, camX);
@@ -51,34 +59,113 @@ export function render(ctx, g, usingTouch) {
   drawBullets(ctx, g);
   if (!truth) drawShots(ctx, g);
   drawParticles(ctx, g);
-  ctx.restore();
-  if (g.area.kind === 'street') drawSewerLight(ctx, g, camX, lamps);
+  if (g.area.kind === 'street') {
+    world();
+    drawSewerLight(ctx, g, camX, lamps);
+  }
 
   if (truth) {
-    truthFilter(ctx, W);
-    ctx.save();
-    ctx.translate(-camX + sx, sy);
+    screen();
+    truthFilter(ctx, SW);
+    world(-camX + sx, sy);
     for (const a of g.actors) if (isLizard(a)) drawActor(ctx, g, a, true);
     drawPickups(ctx, g, true);
     drawShots(ctx, g);
-    ctx.restore();
   }
 
-  ctx.save();
-  ctx.translate(-camX, 0);
+  world(-camX, 0);
   drawPortalFx(ctx, g);
   for (const t of g.texts) drawTextOutlined(ctx, t.text, t.x, t.y, t.color, 1, 'center');
-  ctx.restore();
 
+  screen();
+  drawLaneAlerts(ctx, g, camX, camY);
+  if (usingTouch && input) drawTouchFeedback(ctx, g, input);
   drawHud(ctx, g);
+  if (g.helpTimer > 0 && usingTouch && g.mode === 'play') drawTouchHelp(ctx, g);
   if (g.banner) drawBanner(ctx, g);
   if (g.fade > 0) {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(1, g.fade)})`;
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillRect(0, 0, SW, H);
   }
   if (g.mode === 'paused') drawPaused(ctx, g);
   else if (g.mode === 'gameover') drawGameOver(ctx, g);
   else if (g.mode === 'clear') drawClear(ctx, g);
+}
+
+/** Arrows at the screen edge for snatchers carrying a child out of view. */
+function drawLaneAlerts(ctx, g, camX, camY) {
+  if (g.area.kind !== 'street') return;
+  for (const a of g.actors) {
+    if (a.type !== 'snatcher' || !a.child) continue;
+    const top = (a.y - 30 - camY) * g.zoom;
+    const bottom = (a.y - camY) * g.zoom;
+    if (top >= 0 && bottom <= H) continue;
+    const x = Math.max(12, Math.min(g.screenW - 12, (a.x - camX) * g.zoom));
+    const up = top < 0;
+    const y = up ? 30 : H - 14;
+    if (Math.floor(g.time * 4) % 2) glow(ctx, x, y, 10, '#ff4040', 0.6);
+    ctx.fillStyle = '#ff5050';
+    for (let i = 0; i < 5; i++) ctx.fillRect(x - i, up ? y - 4 + i : y + 4 - i, i * 2 + 1, 1);
+    drawTextOutlined(ctx, 'HELP!', x, up ? y + 4 : y - 10, '#ff8080', 1, 'center');
+  }
+}
+
+/** Shows the touch state: walking direction, and the hold-to-aim point. */
+function drawTouchFeedback(ctx, g, input) {
+  if (g.mode !== 'play') return;
+  if (input.walkDir && !input.holding) {
+    const x = 18;
+    const y = H - 18;
+    ctx.globalAlpha = 0.55 + Math.sin(g.time * 6) * 0.15;
+    for (let k = 0; k < 2; k++) {
+      const cx = x + k * 6 * input.walkDir;
+      ctx.fillStyle = '#ffffff';
+      for (let i = 0; i < 4; i++) ctx.fillRect(cx + (input.walkDir > 0 ? i : -i), y - 4 + i, 1.5, 8 - i * 2);
+    }
+    ctx.globalAlpha = 1;
+  }
+  const h = input.holding;
+  if (h) {
+    const r = ctx.canvas.getBoundingClientRect();
+    const toX = (cx) => ((cx - r.left) / r.width) * g.screenW;
+    const toY = (cy) => ((cy - r.top) / r.height) * H;
+    const x = toX(h.x);
+    const y = toY(h.y);
+    ctx.fillStyle = 'rgba(248,216,0,0.7)';
+    for (let i = 0; i < 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      ctx.fillRect(q(x + Math.cos(a) * 12), q(y + Math.sin(a) * 12), 1, 1);
+    }
+    const ax = toX(h.aimX) - x;
+    const ay = toY(h.aimY) - y;
+    const len = Math.hypot(ax, ay);
+    if (len > 3) {
+      const k = Math.min(len, 12) / len;
+      glow(ctx, x + ax * k, y + ay * k, 4, '#f8d800', 0.8);
+    }
+  }
+}
+
+/** The gesture guide shown at the start of a run on touch screens. */
+function drawTouchHelp(ctx, g) {
+  const a = Math.min(1, g.helpTimer / 1.5);
+  const w = g.screenW;
+  ctx.globalAlpha = a;
+  const rows = [
+    ['LEFT SIDE', 'RIGHT SIDE'],
+    ['SWIPE > OR < : WALK', 'HOLD: FIRE'],
+    ['SWIPE UP: JUMP', 'SWIPE > OR < : TACKLE'],
+    ['TAP: STOP', 'SWIPE UP: SHADES ON'],
+    ['HOLD + DRAG: AIM', 'SWIPE DOWN: SHADES OFF'],
+  ];
+  panel(ctx, 6, H - 66, w / 2 - 12, 58, 0.55);
+  panel(ctx, w / 2 + 6, H - 66, w / 2 - 12, 58, 0.55);
+  rows.forEach(([l, r], i) => {
+    const color = i === 0 ? '#f8d800' : '#ffffff';
+    drawTextOutlined(ctx, l, w / 4, H - 61 + i * 10, color, 1, 'center');
+    drawTextOutlined(ctx, r, (w * 3) / 4, H - 61 + i * 10, color, 1, 'center');
+  });
+  ctx.globalAlpha = 1;
 }
 
 function isLizard(a) {
@@ -1012,7 +1099,7 @@ function drawParticles(ctx, g) {
 // ---------- HUD and screens ----------
 
 function drawHud(ctx, g) {
-  const W = g.W;
+  const W = g.screenW;
   panel(ctx, 2, 2, 52, 10);
   for (let i = 0; i < 4; i++) {
     drawSprite(ctx, i < g.hearts ? icon('heart', '#e83838') : icon('heartEmpty', '#c8c8d8'), 4 + i * 9, 4);
@@ -1064,7 +1151,7 @@ function drawHud(ctx, g) {
 function drawBanner(ctx, g) {
   const { title, sub, t } = g.banner;
   if (t < 0.3 && Math.floor(t * 20) % 2) return;
-  const W = g.W;
+  const W = g.screenW;
   const h = sub ? 30 : 20;
   for (let i = 0; i < 12; i++) {
     const a = 0.6 * Math.sin(((i + 0.5) / 12) * Math.PI);
@@ -1081,7 +1168,7 @@ function drawBanner(ctx, g) {
 function drawMenu(ctx, g, top) {
   const m = g.menu;
   if (!m) return;
-  const W = g.W;
+  const W = g.screenW;
   const bw = 116;
   const bh = 15;
   m.items.forEach((item, i) => {
@@ -1104,27 +1191,27 @@ function drawMenu(ctx, g, top) {
 
 function dim(ctx, g) {
   ctx.fillStyle = 'rgba(4,2,14,0.68)';
-  ctx.fillRect(0, 0, g.W, H);
+  ctx.fillRect(0, 0, g.screenW, H);
 }
 
 function drawPaused(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'PAUSED', g.W / 2, 70, '#ffffff', 3, 'center');
+  drawTextOutlined(ctx, 'PAUSED', g.screenW / 2, 70, '#ffffff', 3, 'center');
   drawMenu(ctx, g, 110);
 }
 
 function drawGameOver(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'GAME OVER', g.W / 2, 56, '#e83030', 3, 'center');
-  drawTextOutlined(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.W / 2, 82, '#ffffff', 1, 'center');
-  drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.W / 2, 92, '#bcbcc8', 1, 'center');
-  drawTextOutlined(ctx, 'THEY LIVE. WE SLEEP.', g.W / 2, 104, '#78f060', 1, 'center');
+  drawTextOutlined(ctx, 'GAME OVER', g.screenW / 2, 56, '#e83030', 3, 'center');
+  drawTextOutlined(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.screenW / 2, 82, '#ffffff', 1, 'center');
+  drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.screenW / 2, 92, '#bcbcc8', 1, 'center');
+  drawTextOutlined(ctx, 'THEY LIVE. WE SLEEP.', g.screenW / 2, 104, '#78f060', 1, 'center');
   drawMenu(ctx, g, 122);
 }
 
 function drawClear(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.W / 2, 58, '#f8d800', 2, 'center');
+  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.screenW / 2, 58, '#f8d800', 2, 'center');
   const s = g.stageStats;
   const rows = [
     ['LIZARDS EXPOSED', s.lizards],
@@ -1134,16 +1221,16 @@ function drawClear(ctx, g) {
     ['STAGE BONUS', g.clearInfo.bonus],
     ['SCORE', g.score],
   ];
-  panel(ctx, g.W / 2 - 66, 78, 132, 64, 0.5);
+  panel(ctx, g.screenW / 2 - 66, 78, 132, 64, 0.5);
   rows.forEach(([label, value], i) => {
-    drawTextOutlined(ctx, label, g.W / 2 - 60, 82 + i * 10, '#ffffff');
-    drawTextOutlined(ctx, String(value), g.W / 2 + 60, 82 + i * 10, '#ffffff', 1, 'right');
+    drawTextOutlined(ctx, label, g.screenW / 2 - 60, 82 + i * 10, '#ffffff');
+    drawTextOutlined(ctx, String(value), g.screenW / 2 + 60, 82 + i * 10, '#ffffff', 1, 'right');
   });
   drawMenu(ctx, g, 152);
 }
 
 function drawTitle(ctx, g, usingTouch) {
-  const W = g.W;
+  const W = g.screenW;
   const cam = g.time * 12;
   // The two worlds, one above the other, like in the game.
   drawCitySky(ctx, W, cam, g.time);

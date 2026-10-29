@@ -32,40 +32,13 @@ body {
   touch-action: none;
 }
 
-#stick,
+/* Touch play uses swipes; the portal device is the only button. */
 .btn {
   display: none;
 }
 
-body.touch.playing #stick,
 body.touch.playing .btn {
   display: flex;
-}
-
-#stick {
-  position: absolute;
-  left: 7vh;
-  bottom: 7vh;
-  width: 34vh;
-  height: 34vh;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.07);
-  border: 2px solid rgba(255, 255, 255, 0.22);
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-}
-
-#stick.active {
-  bottom: auto;
-  background: rgba(255, 255, 255, 0.12);
-}
-
-#knob {
-  width: 14vh;
-  height: 14vh;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.35);
 }
 
 .btn {
@@ -76,105 +49,34 @@ body.touch.playing .btn {
   flex-direction: column;
   color: rgba(255, 255, 255, 0.85);
   font: bold 5vh monospace;
-  background: rgba(216, 40, 0, 0.3);
   border: 2px solid rgba(255, 255, 255, 0.35);
   pointer-events: none;
 }
 
 .btn small {
-  font-size: 2.3vh;
+  font-size: 2vh;
   letter-spacing: 0.1em;
 }
 
-.btn.down {
-  background: rgba(216, 40, 0, 0.7);
-}
-
-#btn-jump {
-  right: 5vh;
-  bottom: 10vh;
-  width: 21vh;
-  height: 21vh;
-}
-
-#btn-fire {
-  right: 30vh;
-  bottom: 4vh;
-  width: 21vh;
-  height: 21vh;
-}
-
-#btn-glasses {
-  right: 12vh;
-  bottom: 36vh;
-  width: 16vh;
-  height: 16vh;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-#btn-glasses svg {
-  width: 70%;
-  fill: #fff;
-}
-
-body.shades-on #btn-glasses {
-  background: rgba(88, 216, 84, 0.45);
-  border-color: #58d854;
-}
-
-body.no-shades #btn-glasses {
-  opacity: 0.25;
-}
-
 #btn-portal {
-  right: 34vh;
-  bottom: 32vh;
-  width: 16vh;
-  height: 16vh;
-  background: rgba(104, 68, 252, 0.35);
+  right: 3vh;
+  top: 20vh;
+  width: 15vh;
+  height: 15vh;
+  background: rgba(104, 68, 252, 0.4);
+}
+
+#btn-portal.down {
+  background: rgba(152, 120, 248, 0.8);
 }
 
 #btn-portal svg {
-  width: 70%;
+  width: 55%;
   fill: #fff;
 }
 
 body.no-portal #btn-portal {
   display: none;
-}
-
-#btn-tackle {
-  right: 52vh;
-  bottom: 31vh;
-  width: 17vh;
-  height: 17vh;
-  background: rgba(248, 120, 0, 0.35);
-}
-
-#btn-tackle small {
-  font-size: 2vh;
-}
-
-#btn-lock {
-  right: 55vh;
-  bottom: 7vh;
-  width: 17vh;
-  height: 17vh;
-  background: rgba(0, 0, 0, 0.45);
-}
-
-#btn-lock svg {
-  width: 48%;
-  fill: #fff;
-}
-
-#btn-lock small {
-  font-size: 2vh;
-}
-
-body.locked #btn-lock {
-  background: rgba(248, 216, 0, 0.45);
-  border-color: #f8d800;
 }
 
 #rotate {
