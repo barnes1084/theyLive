@@ -96,7 +96,8 @@ const TORSO = [
   '...pppppp...',
 ];
 
-// Wrestler build: broad bare shoulders, big arms and a white tank top.
+// A construction worker with a wrestler's build: broad bare shoulders, big arms
+// and a white tank top.
 const TORSO_PLAYER = [
   '.sssswwssss.',
   'sssswwwwssss',
