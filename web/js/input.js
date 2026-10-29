@@ -1,5 +1,5 @@
 // Keyboard and touch input, merged into one set of buttons:
-// left, right, up, down, jump, fire, glasses, portal, pause.
+// left, right, up, down, jump, fire, glasses, portal, lock, pause.
 // `held` is what is down right now; `pressed` is what went down this frame.
 
 const KEYS = {
@@ -11,6 +11,7 @@ const KEYS = {
   KeyX: 'fire', KeyK: 'fire',
   KeyC: 'glasses', KeyL: 'glasses', KeyG: 'glasses',
   KeyV: 'portal', KeyQ: 'portal', KeyE: 'portal',
+  ShiftLeft: 'lock', ShiftRight: 'lock', KeyR: 'lock',
   Escape: 'pause', KeyP: 'pause',
   Enter: 'start',
 };
@@ -22,14 +23,17 @@ export const input = {
   keys: {},
   touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, glasses: false, portal: false },
   usingTouch: false,
+  // The touch lock button is a toggle: thumbs are busy, so it stays on until tapped again.
+  lockToggle: false,
 
   isDown(name) {
+    if (name === 'lock' && this.lockToggle) return true;
     return !!(this.keys[name] || this.touch[name]);
   },
 
   /** Recomputes held/pressed; call once per game step. */
   update() {
-    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'glasses', 'portal', 'pause', 'start'];
+    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'glasses', 'portal', 'lock', 'pause', 'start'];
     for (const n of names) {
       const down = this.isDown(n);
       this.pressed[n] = (down && !this.held[n]) || !!this.latch[n];
@@ -119,6 +123,11 @@ export function setupInput(touchLayer, onTap) {
     for (const p of pointers.values()) if (p.kind === 'button' && p.name) active.add(p.name);
     for (const b of buttons) {
       const name = b.dataset.button;
+      if (name === 'lock') {
+        if (active.has(name) && !b.classList.contains('down')) input.lockToggle = !input.lockToggle;
+        b.classList.toggle('down', active.has(name));
+        continue;
+      }
       if (active.has(name) && !input.touch[name]) input.latch[name] = true;
       input.touch[name] = active.has(name);
       b.classList.toggle('down', active.has(name));

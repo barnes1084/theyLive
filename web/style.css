@@ -143,6 +143,28 @@ body.no-portal #btn-portal {
   display: none;
 }
 
+#btn-lock {
+  right: 55vh;
+  bottom: 7vh;
+  width: 17vh;
+  height: 17vh;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#btn-lock svg {
+  width: 48%;
+  fill: #fff;
+}
+
+#btn-lock small {
+  font-size: 2vh;
+}
+
+body.locked #btn-lock {
+  background: rgba(248, 216, 0, 0.45);
+  border-color: #f8d800;
+}
+
 #rotate {
   display: none;
   position: fixed;

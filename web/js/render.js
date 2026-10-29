@@ -887,6 +887,17 @@ function drawPlayer(ctx, g) {
       ctx.fillRect(px, py, 1.5, P);
     }
   }
+  if (p.planted) {
+    // Feet planted: a dotted guide shows where the shots will go.
+    for (let i = 0; i < 6; i++) {
+      const d = 16 + i * 7 + ((g.time * 20) % 7);
+      ctx.fillStyle = `rgba(248,216,0,${0.75 - i * 0.11})`;
+      ctx.fillRect(q(sx + ax * d), q(sy + ay * d + 0.5), 1, 1);
+    }
+    ctx.fillStyle = 'rgba(248,216,0,0.8)';
+    ctx.fillRect(q(p.x - 6), q(p.y), 3, P * 2);
+    ctx.fillRect(q(p.x + 3), q(p.y), 3, P * 2);
+  }
   if (p.firing > 0) {
     const fx = sx + ax * 13;
     const fy = sy + ay * 13 + 0.75;
@@ -991,6 +1002,7 @@ function drawHud(ctx, g) {
   panel(ctx, W - 58, 2, 38, 16);
   drawTextOutlined(ctx, String(g.score).padStart(7, '0'), W - 22, 4, '#ffffff', 1, 'right');
   drawTextOutlined(ctx, WEAPON_INFO[g.weapon].name, W - 22, 11, '#f8d800', 1, 'right');
+  if (g.player?.planted) drawTextOutlined(ctx, 'LOCKED', W - 22, 21, '#f8d800', 1, 'right');
 
   // Pause button
   panel(ctx, W - 17, 2, 14, 12);
@@ -1116,5 +1128,5 @@ function drawTitle(ctx, g, usingTouch) {
   if (g.save.bestStage > 0) {
     drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, W / 2, H - 30, '#ffffff', 1, 'center');
   }
-  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
+  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  SHIFT LOCK AIM  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
 }

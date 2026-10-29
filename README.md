@@ -62,11 +62,16 @@ All of these are in the sewers, apart from what lizards drop.
 | Move / aim (8 directions) | Stick on the left | Arrows or WASD |
 | Jump (down + jump drops through scaffolding) | **A** | Z, J or Space |
 | Fire (hold) | **B** | X or K |
+| Lock and aim: stand still, the stick only aims | **LOCK** (tap to turn on, tap again to turn off) | Hold Shift or R |
 | Sunglasses | Shades button | G, C or L |
 | Portal device | Purple portal button (appears once you have it) | V, Q or E |
 | Pause | ❚❚ at the top right | P or Esc |
 
 Hold down to crouch under shots that fly straight at you.
+
+While locked you can aim in all eight directions without moving, including
+diagonally down, turn around in place, crouch and jump straight up. A dotted
+line shows where your shots will go.
 
 ## Install on Android (APK)
 

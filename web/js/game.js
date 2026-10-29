@@ -480,9 +480,11 @@ export function createGame(save) {
     const dirX = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
     const dirY = (input.held.down ? 1 : 0) - (input.held.up ? 1 : 0);
 
+    // Holding lock plants your feet: the stick only aims.
+    p.planted = !!input.held.lock && p.onGround;
     p.crouch = p.onGround && dirY > 0 && dirX === 0;
     p.h = p.crouch ? 13 : 21;
-    p.vx = p.crouch ? 0 : dirX * RUN_SPEED;
+    p.vx = p.crouch || p.planted ? 0 : dirX * RUN_SPEED;
     if (dirX) p.face = dirX;
 
     p.coyote = p.onGround ? 0.08 : p.coyote - dt;
