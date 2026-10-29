@@ -20,20 +20,19 @@ const ART = [
   '...ssssssssss...',
   '....ssmmmmss....',
   '.....ssssss.....',
-  '...vvvvssvvvv...',
-  '..vvvvrrrrvvvv..',
-  '..vvvvvvvvvvvv..',
+  '..sssswwwwssss..',
+  '.sssswwwwwwssss.',
+  '.ssswwwwwwwwsss.',
 ];
 const PALETTE = {
   y: '#f8d800',
   Y: '#f8b800',
-  h: '#7c3c00',
-  s: '#fcb878',
+  h: '#e8c058',
+  s: '#f0a868',
   E: '#101018',
   G: '#58d854',
   m: '#a80020',
-  v: '#f87800',
-  r: '#fcfcfc',
+  w: '#f4f4ee',
 };
 const SHADED = shadeGrid(scale2x(ART), PALETTE);
 

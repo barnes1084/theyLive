@@ -11,7 +11,8 @@ const BOSS_Y = ARENA_FLOOR * TILE - 90;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
-  G: { name: 'SHOTGUN', delay: 0.5 },
+  G: { name: 'SPREAD GUN', delay: 0.36 },
+  M: { name: 'MACHINE GUN', delay: 0.075 },
   N: { name: 'NAIL GUN', delay: 0.1 },
   T: { name: 'TORCH', delay: 0.05 },
   S: { name: 'SLUGS', delay: 0.42 },
@@ -20,6 +21,9 @@ export const WEAPON_INFO = {
 const AREA_TITLES = { street: 'THE STREETS', boss: 'THE LAIR' };
 const MUSIC = { street: 'city', boss: 'boss' };
 const PORTAL_COOLDOWN = 1.2;
+const TACKLE_TIME = 0.28;
+const TACKLE_SPEED = 240;
+const TACKLE_COOLDOWN = 0.7;
 
 // ---------- Saved progress ----------
 
@@ -198,7 +202,8 @@ export function createGame(save) {
     Object.assign(g.glasses, { have: false, on: false, meter: 1, locked: false, taken: false });
     g.portal = { have: false, cd: 0 };
     g.carrierPending = false;
-    g.stageStats = { lizards: 0, innocents: 0, score: g.score };
+    g.stageStats = { lizards: 0, innocents: 0, saved: 0, lost: 0, score: g.score };
+    g.snatchTimer = 9;
     g.enterArea('street');
     g.banner = {
       title: `STAGE ${n}`,
@@ -242,6 +247,10 @@ export function createGame(save) {
       jumpBuf: 0,
       anim: 0,
       firing: 0,
+      tackle: 0,
+      tackleCd: 0,
+      tackleHit: null,
+      burstStep: 0,
     };
     if (key === 'boss') {
       g.cam.x = (ARENA_COLS * TILE - g.W) / 2;
@@ -278,7 +287,7 @@ export function createGame(save) {
 
   g.stageClear = function () {
     g.mode = 'clear';
-    const bonus = 1000 * g.stageNum;
+    const bonus = 1000 * g.stageNum + 500 * g.stageStats.saved;
     g.score += bonus;
     g.save.bestStage = Math.max(g.save.bestStage, g.stageNum);
     g.save.bestScore = Math.max(g.save.bestScore, g.score);
@@ -353,7 +362,7 @@ export function createGame(save) {
 
   function hurtPlayer(force = false) {
     const p = g.player;
-    if (!force && p.inv > 0) return;
+    if (!force && (p.inv > 0 || p.tackle > 0)) return;
     if (g.mode !== 'play') return;
     g.shake = 0.25;
     if (g.armor && !force) {
@@ -480,10 +489,30 @@ export function createGame(save) {
     const dirX = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
     const dirY = (input.held.down ? 1 : 0) - (input.held.up ? 1 : 0);
 
+    // Holding lock plants your feet: the stick only aims.
+    p.planted = !!input.held.lock && p.onGround;
     p.crouch = p.onGround && dirY > 0 && dirX === 0;
     p.h = p.crouch ? 13 : 21;
-    p.vx = p.crouch ? 0 : dirX * RUN_SPEED;
+    p.vx = p.crouch || p.planted ? 0 : dirX * RUN_SPEED;
     if (dirX) p.face = dirX;
+
+    // Tackle: a shoulder charge that plows through lizards.
+    p.tackleCd -= dt;
+    if (input.pressed.tackle && p.tackleCd <= 0 && p.tackle <= 0) {
+      p.tackle = TACKLE_TIME;
+      p.tackleCd = TACKLE_COOLDOWN;
+      p.tackleHit = new Set();
+      p.crouch = false;
+      p.h = 21;
+      sfx('tackle');
+    }
+    if (p.tackle > 0) {
+      p.tackle -= dt;
+      p.vx = p.face * TACKLE_SPEED;
+      p.planted = false;
+      if (p.vy > 0) p.vy = 0; // a midair tackle carries straight across
+      if (g.rng.chance(0.6)) burst(p.x - p.face * 6, p.y - 2, '#bcbcbc', 1, 30);
+    }
 
     p.coyote = p.onGround ? 0.08 : p.coyote - dt;
     p.jumpBuf = input.pressed.jump ? 0.12 : p.jumpBuf - dt;
@@ -504,6 +533,8 @@ export function createGame(save) {
     const wasGround = p.onGround;
     applyPhysics(p, dt, area);
     if (p.onGround && !wasGround) sfx('land');
+
+    if (p.tackle > 0) tackleHits();
 
     // Contra rules: the screen only scrolls forward.
     const minX = g.cam.x + p.w / 2 + 1;
@@ -550,6 +581,30 @@ export function createGame(save) {
     return tileAt(g.area, Math.floor(b.x / TILE), Math.floor((b.y - 2) / TILE)) === T.SLUDGE;
   }
 
+  function tackleHits() {
+    const p = g.player;
+    const box = { x: p.x + p.face * 4, y: p.y, w: p.w + 10, h: p.h };
+    for (const a of g.actors) {
+      if (a.dead || a.carriedBy || isInnocent(a) || p.tackleHit.has(a) || !overlap(box, a)) continue;
+      p.tackleHit.add(a);
+      g.shake = Math.max(g.shake, 0.15);
+      burst(a.x, a.y - 12, '#fcfcfc', 8, 90);
+      if (a.type === 'boss') {
+        damageActor(a, 4);
+        p.tackle = 0;
+        p.vx = -p.face * 120;
+        p.vy = -180;
+        continue;
+      }
+      // Knocks a snatcher's grip loose so the child can run for it.
+      if (a.child) freeChild(a);
+      a.x += p.face * 12;
+      a.vy = -160;
+      damageActor(a, 3);
+      if (!a.dead) a.flash = 0.2;
+    }
+  }
+
   function gunOrigin() {
     const p = g.player;
     const shoulder = p.crouch ? p.y - 8 : p.y - 13;
@@ -567,9 +622,15 @@ export function createGame(save) {
     p.fireCd = WEAPON_INFO[g.weapon].delay;
     p.firing = 0.08;
     if (g.weapon === 'G') {
-      for (let i = -2; i <= 2; i++) shoot(i * 0.11 + (g.rng.next() - 0.5) * 0.05, 250 + g.rng.next() * 40, 0.3, 1, 'pellet');
+      // Spread gun: five pellets in a wide fan.
+      for (let i = -2; i <= 2; i++) shoot(i * 0.16 + (g.rng.next() - 0.5) * 0.04, 280 + g.rng.next() * 30, 0.42, 1, 'pellet');
       sfx('shotgun');
-      g.shake = Math.max(g.shake, 0.06);
+      g.shake = Math.max(g.shake, 0.05);
+    } else if (g.weapon === 'M') {
+      // Machine gun: rapid fire that sweeps straight, up, down, and repeats.
+      const sweep = [0, -0.22, 0.22];
+      shoot(sweep[p.burstStep++ % sweep.length], 340, 0.8, 1, 'bullet');
+      sfx('mg');
     } else if (g.weapon === 'N') {
       shoot((g.rng.next() - 0.5) * 0.06, 320, 0.7, 1, 'nail');
       sfx('nail');
@@ -583,10 +644,14 @@ export function createGame(save) {
     }
     burst(o.x, o.y, '#f8d800', g.weapon === 'G' ? 4 : 1, 40);
     // Gunfire sends people running.
-    for (const a of g.actors) if (a.type === 'civilian' && Math.abs(a.x - p.x) < 160 && Math.abs(a.y - p.y) < 80) a.panic = true;
+    for (const a of g.actors) if (isInnocent(a) && Math.abs(a.x - p.x) < 160 && Math.abs(a.y - p.y) < 80) a.panic = true;
   }
 
   // ---------- People and lizards ----------
+
+  function isInnocent(a) {
+    return a.type === 'civilian' || a.type === 'child';
+  }
 
   function spawnActor(sp) {
     const tunnel = g.area.kind === 'boss' || sp.lane === 1;
@@ -594,8 +659,8 @@ export function createGame(save) {
       type: sp.type,
       x: sp.x,
       y: sp.y,
-      w: 8,
-      h: 21,
+      w: sp.type === 'child' ? 6 : 8,
+      h: sp.type === 'child' ? 14 : 21,
       vx: 0,
       vy: 0,
       face: g.rng.chance(0.5) ? 1 : -1,
@@ -603,7 +668,8 @@ export function createGame(save) {
       look: sp.look ?? 0,
       disguised: !!sp.disguised,
       revealed: !sp.disguised,
-      hp: sp.type === 'gunner' ? 4 : tunnel ? 3 : 2,
+      // A few hits at most: this is a shoot-'em-up.
+      hp: sp.type === 'child' ? 1 : sp.type === 'gunner' || sp.type === 'snatcher' || tunnel ? 2 : 1,
       walk: 0,
       timer: 1 + g.rng.next() * 2,
       fireTimer: 1 + g.rng.next() * g.stage.diff.fireDelay,
@@ -659,7 +725,8 @@ export function createGame(save) {
 
   function killActor(a, byPlayer = true) {
     a.dead = true;
-    if (a.type === 'civilian') {
+    if (a.child) freeChild(a);
+    if (isInnocent(a)) {
       burst(a.x, a.y - 12, '#d82800', 12);
       sfx('innocent');
       g.stageStats.innocents++;
@@ -699,7 +766,7 @@ export function createGame(save) {
       if (a.hp <= 0) killBoss();
       return;
     }
-    if (a.type !== 'civilian') {
+    if (!isInnocent(a)) {
       // Shot before it dropped the act: bonus points.
       if (!a.revealed) a.caught = true;
       reveal(a);
@@ -724,13 +791,145 @@ export function createGame(save) {
   }
 
   function updateCivilian(a, dt) {
+    const kid = a.type === 'child';
     if (a.panic) {
       const dir = a.x < g.player.x ? -1 : 1;
       a.face = dir;
-      a.vx = dir * 75;
+      a.vx = dir * (kid ? 60 : 75);
       if (a.onGround && !floorAhead(a, g.area, dir)) a.vy = -260;
-    } else walkAround(a, dt, 20);
+    } else walkAround(a, dt, kid ? 16 : 20);
     if (applyPhysics(a, dt, g.area) && a.onGround) a.vy = -260;
+  }
+
+  // ---------- Child snatchers ----------
+  // Now and then a lizard portals up next to a child on the street, grabs
+  // them and portals back down to the sewers, then runs for its den. Shoot
+  // it to save the child; if it gets away, the child is gone.
+
+  function onScreen(a, margin = 8) {
+    return a.x > g.cam.x + margin && a.x < g.cam.x + g.W - margin;
+  }
+
+  /** Nearest column near c where someone can stand in a lane, on screen. */
+  function standNear(c, lane, range = 16) {
+    for (let d = 0; d <= range; d++) {
+      for (const cc of [c + d, c - d]) {
+        if (standableColumn(cc, lane) && onScreen({ x: cc * TILE + 8 })) return cc;
+      }
+    }
+    return -1;
+  }
+
+  function trySnatch(dt) {
+    if (g.area.kind !== 'street') return;
+    g.snatchTimer -= dt;
+    if (g.snatchTimer > 0) return;
+    const n = g.stageNum;
+    g.snatchTimer = Math.max(8, 17 - n) * (0.8 + g.rng.next() * 0.4);
+    const active = g.actors.filter((a) => a.type === 'snatcher').length;
+    if (active >= (n >= 4 ? 2 : 1)) return;
+    const kids = g.actors.filter((a) => a.type === 'child' && !a.carriedBy && onScreen(a, 24) && laneOf(a.y) === 0);
+    if (!kids.length) return;
+    const kid = g.rng.pick(kids);
+    const side = kid.x > g.player.x ? 1 : -1;
+    const c = standNear(Math.floor((kid.x + side * 40) / TILE), 0, 6);
+    if (c < 0) return;
+    const a = spawnActor({ type: 'snatcher', x: c * TILE + 8, y: g.area.ground[0][c] * TILE, lane: 0 });
+    a.target = kid;
+    a.state = 'emerge';
+    a.timer = 0.5;
+    a.face = kid.x < a.x ? -1 : 1;
+    g.portalFx.push({ x: a.x, y: a.y - 11, t: 0 });
+    sfx('portal');
+    addText(kid.x, kid.y - 24, 'HELP!', '#fc7460', 1.2);
+  }
+
+  function freeChild(a) {
+    const kid = a.child;
+    a.child = null;
+    kid.carriedBy = null;
+    g.stageStats.saved++;
+    g.addScore(500);
+    if (laneOf(a.y) === 1 || g.area.kind !== 'street') {
+      // Down in the sewers: beam them home.
+      kid.dead = true;
+      g.portalFx.push({ x: a.x, y: a.y - 30, t: 0 });
+      burst(a.x, a.y - 30, '#fcfcfc', 14, 60);
+    } else {
+      kid.x = a.x;
+      kid.y = a.y;
+      kid.vy = -200;
+      kid.panic = true;
+    }
+    sfx('found');
+    addText(a.x, a.y - 44, 'CHILD SAVED! +500', '#88ff70', 1.6);
+  }
+
+  function childLost(a) {
+    const kid = a.child;
+    if (!kid) return;
+    a.child = null;
+    kid.dead = true;
+    g.stageStats.lost++;
+    g.addScore(-1000);
+    g.portalFx.push({ x: a.x, y: a.y - 11, t: 0 });
+    sfx('innocent');
+    g.banner = { title: 'A CHILD WAS TAKEN', sub: 'DRAGGED DOWN TO THE NEST. -1000', t: 2.5 };
+  }
+
+  function updateSnatcher(a, dt) {
+    const d = g.stage.diff;
+    a.timer -= dt;
+    if (a.state === 'emerge') {
+      a.vx = 0;
+      if (a.timer <= 0) a.state = 'approach';
+    } else if (a.state === 'approach') {
+      const kid = a.target;
+      if (!kid || kid.dead || kid.carriedBy) {
+        a.state = 'flee';
+        a.fled = 0;
+      } else {
+        const dir = kid.x < a.x ? -1 : 1;
+        a.face = dir;
+        a.vx = dir * 75;
+        if (Math.abs(kid.x - a.x) < 8 && Math.abs(kid.y - a.y) < 12) {
+          kid.carriedBy = a;
+          a.child = kid;
+          a.state = 'grab';
+          a.timer = 0.8;
+          a.vx = 0;
+          addText(a.x, a.y - 44, 'NO!', '#fc7460', 1);
+        }
+      }
+    } else if (a.state === 'grab') {
+      // A moment to struggle: the player's chance to stop it in the street.
+      a.vx = 0;
+      if (a.timer <= 0) {
+        const c = standNear(Math.floor(a.x / TILE), 1);
+        if (c >= 0) {
+          g.portalFx.push({ x: a.x, y: a.y - 11, t: 0 });
+          a.x = c * TILE + 8;
+          a.y = g.area.ground[1][c] * TILE;
+          a.vy = 0;
+          g.portalFx.push({ x: a.x, y: a.y - 11, t: 0 });
+          sfx('portal');
+        }
+        a.state = 'flee';
+        a.fled = 0;
+        a.face = 1;
+      }
+    } else {
+      // Run for the den.
+      a.vx = a.face * (d.enemySpeed + 5);
+      a.fled += Math.abs(a.vx) * dt;
+      if (a.fled > 18 * TILE) {
+        childLost(a);
+        a.gone = true;
+        return;
+      }
+    }
+    const hitWall = applyPhysics(a, dt, g.area);
+    if (a.onGround && a.vx && (hitWall || !floorAhead(a, g.area, Math.sign(a.vx)))) a.vy = -290;
   }
 
   function updateDisguised(a, dt) {
@@ -920,7 +1119,7 @@ export function createGame(save) {
     addText(b.x, b.y - 70, '+5000', '#f8d800', 2);
     sfx('explode');
     g.shots = [];
-    for (const a of g.actors) if (a !== b && a.type !== 'civilian') killActor(a, false);
+    for (const a of g.actors) if (a !== b && !isInnocent(a)) killActor(a, false);
   }
 
   // ---------- Bullets, shots, pickups ----------
@@ -940,7 +1139,7 @@ export function createGame(save) {
         continue;
       }
       for (const a of g.actors) {
-        if (a.dead || b.hit.has(a) || b.life <= 0) continue;
+        if (a.dead || a.carriedBy || b.hit.has(a) || b.life <= 0) continue;
         if (!pointIn(a, b.x, b.y, b.kind === 'flame' ? 3 : 1)) continue;
         b.hit.add(a);
         damageActor(a, b.dmg);
@@ -1056,20 +1255,29 @@ export function createGame(save) {
       if (a.dead) continue;
       if (a.flash > 0) a.flash -= dt;
       a.anim += dt;
+      if (a.carriedBy) {
+        // Held over a snatcher's head.
+        a.x = a.carriedBy.x;
+        a.y = a.carriedBy.y - 22;
+        a.face = a.carriedBy.face;
+        continue;
+      }
       if (a.type === 'boss') updateBoss(a, dt);
-      else if (a.type === 'civilian') updateCivilian(a, dt);
+      else if (isInnocent(a)) updateCivilian(a, dt);
+      else if (a.type === 'snatcher') updateSnatcher(a, dt);
       else if (!a.revealed) updateDisguised(a, dt);
       else if (a.type === 'grunt') updateGrunt(a, dt);
       else updateGunner(a, dt);
 
-      if (a.type !== 'boss' && a.type !== 'civilian' && a.revealed && overlap(a, g.player)) hurtPlayer();
+      if (a.type !== 'boss' && !isInnocent(a) && a.revealed && overlap(a, g.player)) hurtPlayer();
       // Sunk, gone off the bottom, or left far behind.
       if (a.y > VIEW_H + 30 || (a.type !== 'boss' && (inSludge(a) || a.x < g.cam.x - 48 || a.x > g.cam.x + g.W + 160))) {
         a.gone = true;
         if (a.carrier && !g.portal.have) g.carrierPending = true;
+        if (a.child) childLost(a);
       }
     }
-    g.actors = g.actors.filter((a) => !a.dead && !a.gone);
+    g.actors = g.actors.filter((a) => !a.dead && !a.gone && !(a.carriedBy && (a.carriedBy.dead || a.carriedBy.gone)));
   }
 
   function updatePlay(dt) {
@@ -1084,6 +1292,7 @@ export function createGame(save) {
       g.cam.x = Math.max(g.cam.x, Math.min(target, g.area.cols * TILE - g.W));
       spawnFromSpawnList();
       spawnWave(dt);
+      trySnatch(dt);
     }
     updateActors(dt);
     updateBullets(dt);

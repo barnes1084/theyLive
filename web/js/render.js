@@ -5,7 +5,7 @@
 
 import { TILE, ROWS, LANE_ROWS, ARENA_COLS, T, tileAt, isSolid, laneOf } from './stage.js';
 import {
-  personSprite, playerSprite, bossSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
+  personSprite, playerSprite, childSprite, bossSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
   cachedCanvas, dropCached, makeCanvas, shade, shadeHex, mix, rgb, css, DETAIL, COLORS as C,
 } from './sprites.js';
 import { hash } from './rng.js';
@@ -82,7 +82,7 @@ export function render(ctx, g, usingTouch) {
 }
 
 function isLizard(a) {
-  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'boss';
+  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'snatcher' || a.type === 'boss';
 }
 
 // ---------- The sunglasses view ----------
@@ -707,7 +707,7 @@ function drawPortalFx(ctx, g) {
 
 // ---------- Things ----------
 
-const PICKUP_COLORS = { N: '#d83020', T: '#e87818', S: '#c02060', C: '#20a8b8', P: '#7050f0' };
+const PICKUP_COLORS = { M: '#2860d8', N: '#d83020', T: '#e87818', S: '#c02060', C: '#20a8b8', P: '#7050f0' };
 
 /** A shiny weapon capsule, 12 world px across. */
 function capsule(color) {
@@ -768,8 +768,18 @@ function poseOf(a) {
   return 'stand';
 }
 
+function drawChild(ctx, g, a, carried) {
+  const pose = carried ? 'jump' : poseOf(a);
+  const wiggle = carried ? q(Math.sin(g.time * 18) * 1) : 0;
+  drawSprite(ctx, childSprite(a.look, pose, a.face < 0), q(a.x - 6) + wiggle, q(a.y - 15));
+}
+
 function drawActor(ctx, g, a, truthLayer) {
   if (a.type === 'boss') return drawBoss(ctx, g, a);
+  if (a.type === 'child') {
+    if (!a.carriedBy) drawChild(ctx, g, a, false);
+    return;
+  }
   let kind;
   if (a.type === 'civilian') kind = 'civilian';
   else if (!a.disguised) kind = 'lizard';
@@ -798,6 +808,11 @@ function drawActor(ctx, g, a, truthLayer) {
   }
   if (a.flash > 0) spr = flashSprite(spr);
   drawSprite(ctx, spr, x, y);
+  if (a.child) {
+    // Holding a struggling child over its head.
+    drawChild(ctx, g, a.child, true);
+    if (Math.floor(g.time * 4) % 2) drawTextOutlined(ctx, 'HELP!', a.x, a.y - 44, '#fc7460', 1, 'center');
+  }
   if (a.carrier && (a.revealed || truthLayer)) {
     // The portal device, glowing in its hand.
     const dx = flip ? x - 1 : x + 10;
@@ -862,7 +877,15 @@ function drawPlayer(ctx, g) {
   if (!p) return;
   if (p.inv > 0 && g.mode === 'play' && Math.floor(g.time * 20) % 2) return;
   const flip = p.face < 0;
-  const pose = p.crouch ? 'crouch' : poseOf({ onGround: p.onGround, vx: p.vx, anim: p.anim });
+  const tackling = p.tackle > 0;
+  const pose = p.crouch || tackling ? 'crouch' : poseOf({ onGround: p.onGround, vx: p.vx, anim: p.anim });
+  if (tackling) {
+    // Speed lines behind a shoulder charge.
+    for (let i = 0; i < 5; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.7 - i * 0.12})`;
+      ctx.fillRect(q(p.x - p.face * (10 + i * 5) - 3), q(p.y - 14 + ((i * 5) % 12)), 6 - i, P * 2);
+    }
+  }
   const spr = playerSprite(pose, g.glasses.on, flip);
   const x = q(p.x - 6);
   const y = q(p.y - (spr.h - 2 * spr.pad));
@@ -871,6 +894,7 @@ function drawPlayer(ctx, g) {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(x + (flip ? 5 : 4), y + 0.5, 3, P);
   }
+  if (tackling) return;
   // Arm and shotgun along the aim direction.
   const sx = p.x;
   const sy = p.crouch ? p.y - 8 : p.y - 13;
@@ -878,14 +902,34 @@ function drawPlayer(ctx, g) {
   for (let i = 0; i <= 11; i += 0.5) {
     const px = q(sx + ax * i);
     const py = q(sy + ay * i);
-    let color = i < 3 ? '#f87800' : i < 5.5 ? '#7c4818' : '#30303c';
-    if (i >= 3 && i < 5.5) color = '#8c5420';
-    ctx.fillStyle = color;
+    if (i < 4) {
+      // A big bare arm: thick at the bicep, with a highlight on top.
+      const t = i < 2 ? 2.5 : 2;
+      ctx.fillStyle = '#b86c3c';
+      ctx.fillRect(px - 0.5, py - 0.5, t, t);
+      ctx.fillStyle = '#f0a868';
+      ctx.fillRect(px - 0.5, py - 0.5, t, t - 0.5);
+      ctx.fillStyle = '#ffd0a0';
+      ctx.fillRect(px - 0.5, py - 0.5, t - 0.5, P);
+      continue;
+    }
+    ctx.fillStyle = i < 5.5 ? '#8c5420' : '#30303c';
     ctx.fillRect(px, py, 1.5, 1.5);
     if (i >= 5.5) {
       ctx.fillStyle = '#8c8ca4';
       ctx.fillRect(px, py, 1.5, P);
     }
+  }
+  if (p.planted) {
+    // Feet planted: a dotted guide shows where the shots will go.
+    for (let i = 0; i < 6; i++) {
+      const d = 16 + i * 7 + ((g.time * 20) % 7);
+      ctx.fillStyle = `rgba(248,216,0,${0.75 - i * 0.11})`;
+      ctx.fillRect(q(sx + ax * d), q(sy + ay * d + 0.5), 1, 1);
+    }
+    ctx.fillStyle = 'rgba(248,216,0,0.8)';
+    ctx.fillRect(q(p.x - 6), q(p.y), 3, P * 2);
+    ctx.fillRect(q(p.x + 3), q(p.y), 3, P * 2);
   }
   if (p.firing > 0) {
     const fx = sx + ax * 13;
@@ -905,6 +949,15 @@ function drawBullets(ctx, g) {
       glow(ctx, x, y, 3, '#ffc040', 0.8);
       ctx.fillStyle = '#fff8c0';
       ctx.fillRect(x - 0.5, y - 0.5, 1.5, 1.5);
+    } else if (b.kind === 'bullet') {
+      const len = Math.hypot(b.vx, b.vy);
+      const dx = b.vx / len;
+      const dy = b.vy / len;
+      glow(ctx, x, y, 3.5, '#ffe060', 0.6);
+      for (let i = 0; i < 5; i++) {
+        ctx.fillStyle = i < 2 ? '#fffbe0' : '#ffb030';
+        ctx.fillRect(q(x - dx * i * 0.7), q(y - dy * i * 0.7), 1, 1);
+      }
     } else if (b.kind === 'nail') {
       const len = Math.hypot(b.vx, b.vy);
       const dx = b.vx / len;
@@ -991,6 +1044,7 @@ function drawHud(ctx, g) {
   panel(ctx, W - 58, 2, 38, 16);
   drawTextOutlined(ctx, String(g.score).padStart(7, '0'), W - 22, 4, '#ffffff', 1, 'right');
   drawTextOutlined(ctx, WEAPON_INFO[g.weapon].name, W - 22, 11, '#f8d800', 1, 'right');
+  if (g.player?.planted) drawTextOutlined(ctx, 'LOCKED', W - 22, 21, '#f8d800', 1, 'right');
 
   // Pause button
   panel(ctx, W - 17, 2, 14, 12);
@@ -1075,15 +1129,17 @@ function drawClear(ctx, g) {
   const rows = [
     ['LIZARDS EXPOSED', s.lizards],
     ['INNOCENTS HIT', s.innocents],
+    ['CHILDREN SAVED', s.saved],
+    ['CHILDREN TAKEN', s.lost],
     ['STAGE BONUS', g.clearInfo.bonus],
     ['SCORE', g.score],
   ];
-  panel(ctx, g.W / 2 - 66, 78, 132, 44, 0.5);
+  panel(ctx, g.W / 2 - 66, 78, 132, 64, 0.5);
   rows.forEach(([label, value], i) => {
     drawTextOutlined(ctx, label, g.W / 2 - 60, 82 + i * 10, '#ffffff');
     drawTextOutlined(ctx, String(value), g.W / 2 + 60, 82 + i * 10, '#ffffff', 1, 'right');
   });
-  drawMenu(ctx, g, 132);
+  drawMenu(ctx, g, 152);
 }
 
 function drawTitle(ctx, g, usingTouch) {
@@ -1116,5 +1172,5 @@ function drawTitle(ctx, g, usingTouch) {
   if (g.save.bestStage > 0) {
     drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, W / 2, H - 30, '#ffffff', 1, 'center');
   }
-  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
+  if (!usingTouch) drawTextOutlined(ctx, 'ARROWS MOVE  Z JUMP  X FIRE  F TACKLE  SHIFT LOCK AIM  G SHADES  V PORTAL  P PAUSE', W / 2, H - 16, '#bcbcc8', 1, 'center');
 }

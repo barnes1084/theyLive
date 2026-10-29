@@ -143,6 +143,40 @@ body.no-portal #btn-portal {
   display: none;
 }
 
+#btn-tackle {
+  right: 52vh;
+  bottom: 31vh;
+  width: 17vh;
+  height: 17vh;
+  background: rgba(248, 120, 0, 0.35);
+}
+
+#btn-tackle small {
+  font-size: 2vh;
+}
+
+#btn-lock {
+  right: 55vh;
+  bottom: 7vh;
+  width: 17vh;
+  height: 17vh;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+#btn-lock svg {
+  width: 48%;
+  fill: #fff;
+}
+
+#btn-lock small {
+  font-size: 2vh;
+}
+
+body.locked #btn-lock {
+  background: rgba(248, 216, 0, 0.45);
+  border-color: #f8d800;
+}
+
 #rotate {
   display: none;
   position: fixed;

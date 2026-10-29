@@ -4,6 +4,7 @@
 //            and the sewers below, where they run around in their true form
 //            and the weapons and hearts are. A portal device, carried by one
 //            disguised lizard, lets the player warp between the lanes.
+//            Children play on the street; snatchers portal up to take them.
 //   boss   - a locked arena at the end of the street
 // Everything comes from (stage number, run seed), so the same pair always
 // gives the same stage. The tests check every stage can be finished.
@@ -22,7 +23,7 @@ export const RUN_SPEED = 90;
 
 export const T = { AIR: 0, SOLID: 1, ONEWAY: 2, CRATE: 3, SLUDGE: 4 };
 
-export const WEAPONS = ['N', 'T', 'S'];
+export const WEAPONS = ['M', 'N', 'T', 'S'];
 
 const BILLBOARD_ADS = ['BUY NOW', 'NEW CAR', 'COLA', 'VACATION', 'TV 24/7', 'SALE', 'BANK ON US', 'DIET', 'MOVIES'];
 const BILLBOARD_TRUTH = ['OBEY', 'CONSUME', 'SLEEP', 'CONFORM', 'NO THOUGHT', 'SUBMIT', 'WATCH TV', 'STAY ASLEEP', 'BUY', 'DO NOT QUESTION', 'MARRY AND REPRODUCE'];
@@ -36,10 +37,10 @@ export function difficulty(stage) {
     disguiseRatio: Math.min(0.3 + 0.04 * s, 0.6),
     maxGap: stage === 1 ? 2 : 3,
     sewerSpacing: [Math.max(4, 8 - Math.floor(s / 2)), Math.max(6, 11 - Math.floor(s / 2))],
-    waveDelay: Math.max(1.4, 3.6 - 0.22 * s),
+    waveDelay: Math.max(1.0, 2.8 - 0.18 * s),
     enemySpeed: 55 + 3 * s,
     fireDelay: Math.max(1.1, 2.2 - 0.11 * s),
-    bossHp: 60 + 25 * (stage - 1),
+    bossHp: 45 + 18 * (stage - 1),
   };
 }
 
@@ -219,9 +220,17 @@ function generateStreet(cityRng, sewerRng, diff) {
       area.spawns.push({ type: 'civilian', x, y, look, lane: 0 });
     }
   }
+  // Children playing on the street. Snatchers portal up to grab them.
+  const kids = Math.min(6, 4 + Math.floor(diff.length / 160));
+  const kidCols = openFloor(area, 0, 24, area.exit.c0 - 10).filter((c) => !area.spawns.some((sp) => Math.abs(sp.x - (c * TILE + 8)) < TILE));
+  for (let i = 0; i < kids && kidCols.length; i++) {
+    const c = kidCols[Math.floor(((i + 0.5) / kids) * kidCols.length)];
+    area.spawns.push({ type: 'child', x: c * TILE + 8, y: area.ground[0][c] * TILE, look: cityRng.int(0, 3), lane: 0 });
+  }
+
   // One disguised lizard after the glasses carries the portal device.
-  const carrierZone = area.spawns.filter((s) => s.x > (gc + 8) * TILE && s.x < length * TILE * 0.55);
-  const carrier = carrierZone.find((s) => s.disguised) || carrierZone[0] || area.spawns[area.spawns.length - 1];
+  const carrierZone = area.spawns.filter((s) => s.type !== 'child' && s.x > (gc + 8) * TILE && s.x < length * TILE * 0.55);
+  const carrier = carrierZone.find((s) => s.disguised) || carrierZone[0] || area.spawns.filter((s) => s.type !== 'child').pop();
   Object.assign(carrier, { type: 'grunt', disguised: true, carrier: true });
 
   // ---- Lizards in the sewers.
