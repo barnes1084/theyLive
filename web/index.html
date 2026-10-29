@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#000000" />
+    <meta name="description" content="An 8-bit run-and-gun. Find the sunglasses and see who is really running the city." />
+    <title>They Live</title>
+    <link rel="icon" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <canvas id="screen"></canvas>
+    <div id="touch">
+      <div id="stick"><div id="knob"></div></div>
+      <div class="btn" id="btn-glasses" data-button="glasses" aria-label="Sunglasses">
+        <svg viewBox="0 0 24 12" aria-hidden="true"><path d="M1 2h22v2h-1l-1 6h-6l-1.5-4h-3L9 10H3L2 4H1z" /></svg>
+      </div>
+      <div class="btn" id="btn-fire" data-button="fire"><span>B</span><small>FIRE</small></div>
+      <div class="btn" id="btn-jump" data-button="jump"><span>A</span><small>JUMP</small></div>
+    </div>
+    <div id="rotate">TURN YOUR PHONE SIDEWAYS</div>
+    <script type="module" src="js/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,52 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Every CI build gets a higher versionCode so new builds install over old ones.
+def ciRun = System.getenv('GITHUB_RUN_NUMBER')
+def buildNumber = ciRun ? ciRun.toInteger() : 1
+
+android {
+    namespace 'io.github.barnes1084.theylive'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'io.github.barnes1084.theylive'
+        minSdk 24
+        targetSdk 35
+        versionCode buildNumber
+        versionName "1.0.${buildNumber}"
+    }
+
+    signingConfigs {
+        // Bundled key for the sideloaded APK: every build is signed the same
+        // so updates install in place. Never use it for Google Play.
+        sideload {
+            storeFile file('theylive.jks')
+            storePassword 'theylive-game'
+            keyAlias 'theylive'
+            keyPassword 'theylive-game'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.sideload
+        }
+    }
+
+    // The game itself lives in ../web and is bundled as app assets.
+    sourceSets {
+        main.assets.srcDirs += ['../../web']
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+}
