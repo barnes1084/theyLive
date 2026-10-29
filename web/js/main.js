@@ -18,7 +18,7 @@ game.onSettingsChanged = () => {
 };
 
 // How much closer the camera is in the default CLOSE view.
-const CLOSE_ZOOM = 1.4;
+const CLOSE_ZOOM = 1.2;
 
 /**
  * The screen (HUD and menus) is always VIEW_H units tall; its width follows

@@ -109,10 +109,10 @@ midair too.
 
 ### View
 
-The default **CLOSE** view zooms in on your lane so everyone is bigger, and
-slides between the city and the sewers when you use the portal; you still see a
-slice of the other lane, and an arrow at the screen edge warns you when a
-snatcher is carrying a child out of view. **VIEW: FULL** (title or pause menu)
+The default **CLOSE** view zooms in so everyone is bigger. It always shows the
+whole sewer lane and the city street, cropping the empty sky; it only rises
+when you climb high or jump near the top. If a snatcher carrying a child is
+ever out of view, an arrow at the screen edge warns you. **VIEW: FULL** (title or pause menu)
 shows both lanes whole, all the time.
 
 ## Install on Android (APK)

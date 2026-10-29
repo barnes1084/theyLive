@@ -295,7 +295,9 @@ export function createGame(save) {
   /**
    * Moves the camera. Across, it follows the player forward only (Contra
    * style), or tracks them in a boss arena wider than the screen. Up and
-   * down, when zoomed in, it shows the player's lane and a slice of the other.
+   * down, when zoomed in, it sits at the bottom so the whole sewer lane is
+   * always in view, cropping the sky; it only rises to keep the player's head
+   * on screen when they climb or jump near the top.
    */
   g.updateCamera = function (dt, snap = false) {
     const p = g.player;
@@ -308,9 +310,9 @@ export function createGame(save) {
       g.cam.x = snap ? Math.max(0, target) : Math.max(g.cam.x, target);
     }
     const free = VIEW_H - g.viewH;
-    let ty = 0;
-    if (free > 0) ty = g.area.kind === 'street' && laneOf(p.y) === 0 ? Math.min(free, 16) : free;
-    g.cam.y = snap ? ty : g.cam.y + (ty - g.cam.y) * Math.min(1, dt * 10);
+    const head = p.y - p.h - 10;
+    const ty = Math.max(0, Math.min(free, head));
+    g.cam.y = snap ? ty : g.cam.y + (ty - g.cam.y) * Math.min(1, dt * 8);
   };
 
   /** Fades to black, swaps area, fades back in. */
