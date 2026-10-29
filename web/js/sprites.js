@@ -317,6 +317,12 @@ export function tileSprite(kind, tile, top, frame = 0) {
         px(1, 5, 14, 1, C.brown);
         px(1, 10, 14, 1, C.brown);
         for (let i = 1; i < 15; i++) px(i, i, 1, 1, C.brown);
+      } else if (tile === 4 && kind === 'city') {
+        // Wet cement at the bottom of a construction pit.
+        px(0, 0, 16, 16, C.gray);
+        for (let x = 0; x < 16; x++) px(x, Math.round(3 + Math.sin((x + frame) * 0.6)), 1, 1, C.lightGray);
+        px((frame * 5 + 3) % 15, 8, 2, 1, C.darkGray);
+        px((frame * 3 + 10) % 15, 12, 1, 1, C.darkGray);
       } else if (tile === 4) {
         px(0, 0, 16, 16, '#005800');
         for (let x = 0; x < 16; x++) {

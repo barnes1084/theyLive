@@ -1,5 +1,5 @@
 // Keyboard and touch input, merged into one set of buttons:
-// left, right, up, down, jump, fire, glasses, pause.
+// left, right, up, down, jump, fire, glasses, portal, pause.
 // `held` is what is down right now; `pressed` is what went down this frame.
 
 const KEYS = {
@@ -10,6 +10,7 @@ const KEYS = {
   KeyZ: 'jump', KeyJ: 'jump', Space: 'jump',
   KeyX: 'fire', KeyK: 'fire',
   KeyC: 'glasses', KeyL: 'glasses', KeyG: 'glasses',
+  KeyV: 'portal', KeyQ: 'portal', KeyE: 'portal',
   Escape: 'pause', KeyP: 'pause',
   Enter: 'start',
 };
@@ -19,7 +20,7 @@ export const input = {
   pressed: {},
   latch: {}, // presses too quick to still be down at the next step
   keys: {},
-  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, glasses: false },
+  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, glasses: false, portal: false },
   usingTouch: false,
 
   isDown(name) {
@@ -28,7 +29,7 @@ export const input = {
 
   /** Recomputes held/pressed; call once per game step. */
   update() {
-    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'glasses', 'pause', 'start'];
+    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'glasses', 'portal', 'pause', 'start'];
     for (const n of names) {
       const down = this.isDown(n);
       this.pressed[n] = (down && !this.held[n]) || !!this.latch[n];
@@ -159,10 +160,11 @@ export function setupInput(touchLayer, onTap) {
     if (p.kind === 'stick') setStick(e.clientX - p.ox, e.clientY - p.oy);
     else if (p.kind === 'button') {
       // Slide between fire and jump without lifting the thumb. The glasses
-      // button only toggles on a fresh press.
+      // and portal buttons only work on a fresh press.
       const b = buttonAt(e.clientX, e.clientY);
       const name = b?.dataset.button;
-      if (name !== p.name && name !== 'glasses' && p.name !== 'glasses') {
+      const slides = (n) => n === 'fire' || n === 'jump' || n === undefined;
+      if (name !== p.name && slides(name) && slides(p.name)) {
         p.name = name;
         refreshButtons();
       }

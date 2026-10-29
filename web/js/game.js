@@ -1,12 +1,13 @@
-// Game rules: the player, weapons, sunglasses, people, lizards, the boss,
-// and moving from the city down to the tunnels and on to the next stage.
+// Game rules: the player, weapons, sunglasses, the portal device, people,
+// lizards, the boss, and moving on through the stages.
 
-import { TILE, ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, WEAPONS, tileAt, isSolid, generateStage } from './stage.js';
+import { TILE, ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA_FLOOR, WEAPONS, tileAt, isSolid, laneOf, generateStage } from './stage.js';
 import { sfx, playMusic } from './audio.js';
 import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
 const STEP = 1 / 60;
+const BOSS_Y = ARENA_FLOOR * TILE - 90;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
@@ -16,7 +17,9 @@ export const WEAPON_INFO = {
   S: { name: 'SLUGS', delay: 0.42 },
 };
 
-const AREA_TITLES = { city: 'THE STREETS', tunnel: 'THE SEWERS', boss: 'THE LAIR' };
+const AREA_TITLES = { street: 'THE STREETS', boss: 'THE LAIR' };
+const MUSIC = { street: 'city', boss: 'boss' };
+const PORTAL_COOLDOWN = 1.2;
 
 // ---------- Saved progress ----------
 
@@ -128,7 +131,7 @@ export function createGame(save) {
     runSeed: 1,
     stageNum: 1,
     stage: null,
-    areaKey: 'city',
+    areaKey: 'street',
     area: null,
     cam: { x: 0 },
     player: null,
@@ -146,6 +149,9 @@ export function createGame(save) {
     armor: false,
     weapon: 'G',
     glasses: { have: false, on: false, meter: 1, locked: false, contacts: false, taken: false },
+    portal: { have: false, cd: 0 },
+    carrierPending: false,
+    portalFx: [],
     spawnIndex: 0,
     waveTimer: 3,
     boss: null,
@@ -188,10 +194,12 @@ export function createGame(save) {
   g.startStage = function (n) {
     g.stageNum = n;
     g.stage = generateStage(n, g.runSeed);
-    // The lizards took your shades. Find them again.
+    // The lizards took your shades and the portal device. Find them again.
     Object.assign(g.glasses, { have: false, on: false, meter: 1, locked: false, taken: false });
+    g.portal = { have: false, cd: 0 };
+    g.carrierPending = false;
     g.stageStats = { lizards: 0, innocents: 0, score: g.score };
-    g.enterArea('city');
+    g.enterArea('street');
     g.banner = {
       title: `STAGE ${n}`,
       sub: n === 1 ? 'FIND THE SUNGLASSES' : 'THEY TOOK YOUR SHADES. FIND THEM!',
@@ -207,6 +215,7 @@ export function createGame(save) {
     g.shots = [];
     g.particles = [];
     g.texts = [];
+    g.portalFx = [];
     g.boss = null;
     g.bossDeadTimer = 0;
     g.pickups = g.area.pickups.map((p) => ({ ...p, vy: 0, taken: false }));
@@ -217,7 +226,7 @@ export function createGame(save) {
     const startC = Math.floor(startX / TILE);
     g.player = {
       x: startX,
-      y: g.area.ground[startC] * TILE,
+      y: g.area.ground[0][startC] * TILE,
       w: 8,
       h: 21,
       vx: 0,
@@ -227,7 +236,7 @@ export function createGame(save) {
       crouch: false,
       aim: { x: 1, y: 0 },
       fireCd: 0,
-      inv: key === 'city' ? 0 : 1,
+      inv: key === 'street' ? 0 : 1,
       drop: 0,
       coyote: 0,
       jumpBuf: 0,
@@ -240,7 +249,7 @@ export function createGame(save) {
       g.boss = {
         type: 'boss',
         x: ARENA_COLS * TILE * 0.7,
-        y: 100,
+        y: BOSS_Y,
         w: 26,
         h: 60,
         vx: 0,
@@ -251,12 +260,12 @@ export function createGame(save) {
         timer: 2,
         count: 0,
         targetX: ARENA_COLS * TILE * 0.5,
-        baseY: 100,
+        baseY: BOSS_Y,
         name: g.stage.bossName,
       };
       g.actors.push(g.boss);
     }
-    playMusic(key);
+    playMusic(MUSIC[key]);
     g.mode = 'play';
   };
 
@@ -367,22 +376,66 @@ export function createGame(save) {
     }
   }
 
+  /** Can the player stand in column c of a lane? */
+  function standableColumn(c, lane) {
+    const gr = g.area.ground[lane][c];
+    return gr >= 0 && !isSolid(tileAt(g.area, c, gr - 1)) && !isSolid(tileAt(g.area, c, gr - 2));
+  }
+
   /** First standable column at or after column c. */
-  function safeColumn(c) {
-    for (let i = Math.max(c, 0); i < g.area.cols; i++) {
-      const gr = g.area.ground[i];
-      if (gr >= 0 && !isSolid(tileAt(g.area, i, gr - 1)) && !isSolid(tileAt(g.area, i, gr - 2))) return i;
-    }
+  function safeColumn(c, lane) {
+    for (let i = Math.max(c, 0); i < g.area.cols; i++) if (standableColumn(i, lane)) return i;
     return c;
   }
 
-  function respawnPlayer() {
+  function laneOfPlayer() {
+    return g.area.kind === 'street' ? laneOf(g.player.y) : 0;
+  }
+
+  function respawnPlayer(lane) {
     const p = g.player;
-    const c = safeColumn(Math.floor((g.cam.x + 24) / TILE));
+    const c = safeColumn(Math.floor((g.cam.x + 24) / TILE), lane);
     p.x = c * TILE + TILE / 2;
-    p.y = g.area.ground[c] * TILE;
+    p.y = g.area.ground[lane][c] * TILE;
     p.vx = p.vy = 0;
     p.inv = 2;
+  }
+
+  // ---------- Portal device ----------
+
+  /** Warps to the other lane, at the nearest spot on screen to stand on. */
+  function usePortal() {
+    const p = g.player;
+    const pt = g.portal;
+    if (!pt.have || g.area.kind !== 'street') return;
+    if (pt.cd > 0) return;
+    const to = 1 - laneOf(p.y);
+    const c0 = Math.floor(p.x / TILE);
+    let target = -1;
+    for (let d = 0; d < 16 && target < 0; d++) {
+      for (const c of [c0 + d, c0 - d]) {
+        const x = c * TILE + TILE / 2;
+        if (x > g.cam.x + 8 && x < g.cam.x + g.W - 8 && standableColumn(c, to)) {
+          target = c;
+          break;
+        }
+      }
+    }
+    if (target < 0) {
+      addText(p.x, p.y - 30, 'NO SIGNAL', '#9878f8');
+      return;
+    }
+    g.portalFx.push({ x: p.x, y: p.y - 11, t: 0 });
+    burst(p.x, p.y - 11, '#9878f8', 12, 60);
+    p.x = target * TILE + TILE / 2;
+    p.y = g.area.ground[to][target] * TILE;
+    p.vx = p.vy = 0;
+    p.inv = Math.max(p.inv, 0.6);
+    g.portalFx.push({ x: p.x, y: p.y - 11, t: 0 });
+    burst(p.x, p.y - 11, '#9878f8', 12, 60);
+    pt.cd = PORTAL_COOLDOWN;
+    sfx('portal');
+    playMusic(to ? 'tunnel' : 'city');
   }
 
   // ---------- Glasses ----------
@@ -475,24 +528,26 @@ export function createGame(save) {
     if (input.held.fire && p.fireCd <= 0) fire();
     if (p.inv > 0) p.inv -= dt;
 
-    // Falling into the manhole takes you down to the tunnels.
-    const exit = area.exit;
-    if (area.kind === 'city' && p.y > exit.r * TILE + 24 && p.x > exit.c0 * TILE - 4 && p.x < (exit.c1 + 1) * TILE + 4) {
-      g.transitionTo('tunnel');
-      return;
-    }
-    if (area.kind === 'tunnel' && p.x >= exit.c0 * TILE + 8) {
+    if (input.pressed.portal) usePortal();
+
+    // The lair door is at the end of both lanes.
+    if (area.kind === 'street' && p.x >= area.exit.c0 * TILE + 8) {
       g.transitionTo('boss');
       return;
     }
-    // Pits and sludge.
-    const inSludge = area.kind === 'tunnel' && p.y > (ROWS - 1) * TILE + 4;
-    if (p.y > VIEW_H + 24 || inSludge) {
-      if (inSludge) burst(p.x, p.y - 4, '#58d854', 12);
+    // Wet cement in the city pits, sludge in the sewer pits.
+    const lane = laneOfPlayer();
+    const sunk = inSludge(p);
+    if (p.y > VIEW_H + 24 || sunk) {
+      if (sunk) burst(p.x, p.y - 4, lane ? '#58d854' : '#bcbcbc', 12);
       p.inv = 0;
       hurtPlayer(true);
-      if (g.mode === 'play') respawnPlayer();
+      if (g.mode === 'play') respawnPlayer(lane);
     }
+  }
+
+  function inSludge(b) {
+    return tileAt(g.area, Math.floor(b.x / TILE), Math.floor((b.y - 2) / TILE)) === T.SLUDGE;
   }
 
   function gunOrigin() {
@@ -528,13 +583,13 @@ export function createGame(save) {
     }
     burst(o.x, o.y, '#f8d800', g.weapon === 'G' ? 4 : 1, 40);
     // Gunfire sends people running.
-    for (const a of g.actors) if (a.type === 'civilian' && Math.abs(a.x - p.x) < 160) a.panic = true;
+    for (const a of g.actors) if (a.type === 'civilian' && Math.abs(a.x - p.x) < 160 && Math.abs(a.y - p.y) < 80) a.panic = true;
   }
 
   // ---------- People and lizards ----------
 
   function spawnActor(sp) {
-    const tunnel = g.area.kind !== 'city';
+    const tunnel = g.area.kind === 'boss' || sp.lane === 1;
     const a = {
       type: sp.type,
       x: sp.x,
@@ -557,7 +612,13 @@ export function createGame(save) {
       anim: g.rng.next() * 2,
       flash: 0,
       panic: false,
+      carrier: !!sp.carrier,
     };
+    // The carrier got away earlier, so another lizard picks up the device.
+    if (g.carrierPending && a.disguised) {
+      a.carrier = true;
+      g.carrierPending = false;
+    }
     g.actors.push(a);
     return a;
   }
@@ -570,9 +631,9 @@ export function createGame(save) {
     }
   }
 
-  /** Lizards keep pouring out of the dark in the tunnels. */
+  /** Lizards keep pouring out of the dark while you're in the sewers. */
   function spawnWave(dt) {
-    if (g.area.kind !== 'tunnel') return;
+    if (g.area.kind !== 'street' || laneOfPlayer() !== 1) return;
     g.waveTimer -= dt;
     if (g.waveTimer > 0) return;
     const d = g.stage.diff;
@@ -581,9 +642,9 @@ export function createGame(save) {
     const behind = g.rng.chance(0.2);
     const x = behind ? g.cam.x + 4 : g.cam.x + g.W + 8;
     const c = Math.floor(x / TILE);
-    const gr = g.area.ground[c];
+    const gr = g.area.ground[1][c];
     if (gr < 0) return;
-    const a = spawnActor({ type: 'grunt', x, y: gr * TILE });
+    const a = spawnActor({ type: 'grunt', x, y: gr * TILE, lane: 1 });
     a.face = behind ? 1 : -1;
     a.charging = true;
   }
@@ -617,8 +678,13 @@ export function createGame(save) {
       addText(a.x, a.y - 30, 'SPOTTED! +' + points, '#58d854');
     } else addText(a.x, a.y - 30, '+' + points, '#fcfcfc', 0.7);
     g.addScore(points);
-    // Sometimes they drop something.
-    if (g.rng.chance(0.09)) {
+    if (a.carrier) {
+      g.pickups.push({ kind: 'P', x: a.x, y: a.y - 8, vy: -160, hidden: false, taken: false, dropped: true });
+      addText(a.x, a.y - 40, 'IT DROPPED SOMETHING!', '#9878f8', 1.5);
+      return;
+    }
+    // In the sewers they sometimes drop something.
+    if (laneOf(a.y) === 1 && g.rng.chance(0.09)) {
       const kind = g.rng.pick(['+', 'H', ...WEAPONS, ...WEAPONS]);
       g.pickups.push({ kind, x: a.x, y: a.y - 8, vy: -120, hidden: false, taken: false, dropped: true });
     }
@@ -687,9 +753,18 @@ export function createGame(save) {
     } else a.alert = Math.max(0, a.alert - dt);
   }
 
+  function sameLane(a) {
+    return g.area.kind !== 'street' || laneOf(a.y) === laneOf(g.player.y);
+  }
+
   function updateGrunt(a, dt) {
     const p = g.player;
     const d = g.stage.diff;
+    if (!sameLane(a)) {
+      walkAround(a, dt, 25);
+      applyPhysics(a, dt, g.area);
+      return;
+    }
     const dir = a.charging ? a.face : p.x < a.x ? -1 : 1;
     if (!a.charging) a.face = dir;
     // Charging grunts run past the player, Contra style, until they turn.
@@ -707,7 +782,7 @@ export function createGame(save) {
     applyPhysics(a, dt, g.area);
     a.fireTimer -= dt;
     const onScreen = a.x > g.cam.x && a.x < g.cam.x + g.W;
-    if (a.fireTimer <= 0 && onScreen && Math.abs(p.x - a.x) < g.W * 0.7) {
+    if (a.fireTimer <= 0 && onScreen && sameLane(a) && Math.abs(p.x - a.x) < g.W * 0.7) {
       a.fireTimer = d.fireDelay * (0.8 + g.rng.next() * 0.4);
       const ox = a.x + a.face * 7;
       const oy = a.y - 15;
@@ -789,7 +864,7 @@ export function createGame(save) {
         if (b.timer <= 0) {
           for (const side of [-1, 1]) {
             const x = side < 0 ? left : right;
-            const a = spawnActor({ type: 'grunt', x, y: 9 * TILE });
+            const a = spawnActor({ type: 'grunt', x, y: ARENA_FLOOR * TILE });
             a.face = -side;
           }
           sfx('reveal');
@@ -814,8 +889,8 @@ export function createGame(save) {
         }
         if (b.count === 1) {
           toward(b.diveX, 110);
-          b.y = Math.min(b.y + 150 * dt, 9 * TILE);
-          if (b.y >= 9 * TILE) {
+          b.y = Math.min(b.y + 150 * dt, ARENA_FLOOR * TILE);
+          if (b.y >= ARENA_FLOOR * TILE) {
             b.count = 2;
             g.shake = 0.3;
             sfx('explode');
@@ -894,7 +969,7 @@ export function createGame(save) {
   function updatePickups(dt) {
     const p = g.player;
     const gl = g.glasses;
-    if (g.area.kind === 'city' && !gl.taken) {
+    if (g.area.kind === 'street' && !gl.taken) {
       const box = { x: g.area.glasses.x, y: g.area.glasses.y, w: 14, h: 14 };
       if (overlap(box, p)) {
         gl.taken = true;
@@ -912,7 +987,10 @@ export function createGame(save) {
         applyPhysics(body, dt, g.area);
         k.y = body.y;
         k.vy = body.vy;
-        if (k.y > VIEW_H + 20) k.taken = true;
+        if (k.y > VIEW_H + 20 || inSludge(k)) {
+          k.taken = true;
+          if (k.kind === 'P') g.carrierPending = true;
+        }
       }
       if (k.hidden && !gl.on) continue;
       if (!overlap({ x: k.x, y: k.y, w: 10, h: 12 }, p)) continue;
@@ -938,6 +1016,13 @@ export function createGame(save) {
     } else if (k.kind === 'H') {
       g.armor = true;
       addText(p.x, p.y - 30, 'HARD HAT', '#f8d800');
+    } else if (k.kind === 'P') {
+      g.portal.have = true;
+      g.banner = {
+        title: 'PORTAL DEVICE!',
+        sub: input.usingTouch ? 'TAP THE PORTAL BUTTON TO WARP BELOW' : 'PRESS V TO WARP BETWEEN STREET AND SEWER',
+        t: 3.5,
+      };
     } else if (k.kind === 'C') {
       if (g.glasses.contacts) {
         g.addScore(1000);
@@ -978,13 +1063,19 @@ export function createGame(save) {
       else updateGunner(a, dt);
 
       if (a.type !== 'boss' && a.type !== 'civilian' && a.revealed && overlap(a, g.player)) hurtPlayer();
-      // Gone off the bottom, or left far behind.
-      if (a.y > VIEW_H + 30 || (a.type !== 'boss' && (a.x < g.cam.x - 48 || a.x > g.cam.x + g.W + 160))) a.gone = true;
+      // Sunk, gone off the bottom, or left far behind.
+      if (a.y > VIEW_H + 30 || (a.type !== 'boss' && (inSludge(a) || a.x < g.cam.x - 48 || a.x > g.cam.x + g.W + 160))) {
+        a.gone = true;
+        if (a.carrier && !g.portal.have) g.carrierPending = true;
+      }
     }
     g.actors = g.actors.filter((a) => !a.dead && !a.gone);
   }
 
   function updatePlay(dt) {
+    if (g.portal.cd > 0) g.portal.cd -= dt;
+    for (const f of g.portalFx) f.t += dt;
+    g.portalFx = g.portalFx.filter((f) => f.t < 0.5);
     updateGlasses(dt);
     updatePlayer(dt);
     if (g.mode !== 'play' && g.mode !== 'dying') return;
