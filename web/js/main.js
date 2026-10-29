@@ -3,7 +3,6 @@ import { createGame, loadSave, VIEW_H } from './game.js';
 import { render, RES } from './render.js';
 import { input, setupInput } from './input.js';
 import { unlockAudio, setSound, setMusic } from './audio.js';
-import { ARENA_COLS, TILE } from './stage.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
@@ -15,17 +14,29 @@ const game = createGame(save);
 game.onSettingsChanged = () => {
   setSound(save.sound);
   setMusic(save.music);
+  resize();
 };
 
-/** The view is always VIEW_H pixels tall; its width follows the screen. */
+// How much closer the camera is in the default CLOSE view.
+const CLOSE_ZOOM = 1.2;
+
+/**
+ * The screen (HUD and menus) is always VIEW_H units tall; its width follows
+ * the screen's shape. The world is drawn `zoom` times bigger, so the camera
+ * sees VIEW_H / zoom of it.
+ */
 function resize() {
-  const W = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
-  canvas.width = W * RES;
+  const zoom = save.view === 'full' ? 1 : CLOSE_ZOOM;
+  const screenW = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
+  canvas.width = screenW * RES;
   canvas.height = VIEW_H * RES;
-  game.W = W;
-  if (game.areaKey === 'boss' && game.area) game.cam.x = (ARENA_COLS * TILE - W) / 2;
-  const scale = Math.min(innerWidth / W, innerHeight / VIEW_H);
-  canvas.style.width = `${W * scale}px`;
+  game.screenW = screenW;
+  game.zoom = zoom;
+  game.viewH = VIEW_H / zoom;
+  game.W = screenW / zoom;
+  game.updateCamera(0, true);
+  const scale = Math.min(innerWidth / screenW, innerHeight / VIEW_H);
+  canvas.style.width = `${screenW * scale}px`;
   canvas.style.height = `${VIEW_H * scale}px`;
 }
 addEventListener('resize', resize);
@@ -34,7 +45,7 @@ resize();
 function onTap(clientX, clientY) {
   unlockAudio();
   const r = canvas.getBoundingClientRect();
-  const x = ((clientX - r.left) / r.width) * game.W;
+  const x = ((clientX - r.left) / r.width) * game.screenW;
   const y = ((clientY - r.top) / r.height) * VIEW_H;
   const inside = (b) => b && x >= b.x && x < b.x + b.w && y >= b.y && y < b.y + b.h;
   if (game.menu) {
@@ -74,11 +85,8 @@ function frame(now) {
   }
   const playing = game.mode === 'play' || game.mode === 'transition';
   document.body.classList.toggle('playing', playing);
-  document.body.classList.toggle('no-shades', !game.glasses.have);
-  document.body.classList.toggle('shades-on', game.glasses.on);
-  document.body.classList.toggle('locked', input.lockToggle);
   document.body.classList.toggle('no-portal', !game.portal.have || game.areaKey !== 'street');
-  render(ctx, game, input.usingTouch || coarse);
+  render(ctx, game, input.usingTouch || coarse, input);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

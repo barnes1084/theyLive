@@ -67,27 +67,53 @@ it until you grab another. Most lizards go down in one or two hits.
 
 ### Controls
 
-| | Touch | Keyboard |
-|---|---|---|
-| Move / aim (8 directions) | Stick on the left | Arrows or WASD |
-| Jump (down + jump drops through scaffolding) | **A** | Z, J or Space |
-| Fire (hold) | **B** | X or K |
-| Tackle | **TACKLE** | F or H |
-| Lock and aim: stand still, the stick only aims | **LOCK** (tap to turn on, tap again to turn off) | Hold Shift or R |
-| Sunglasses | Shades button | G, C or L |
-| Portal device | Purple portal button (appears once you have it) | V, Q or E |
-| Pause | ❚❚ at the top right | P or Esc |
+On a phone there are no on-screen buttons except the portal device, so nothing
+covers the game. Everything else is a swipe:
+
+| Left half of the screen | |
+|---|---|
+| Swipe right or left | Keep walking that way after you let go |
+| Tap | Stop |
+| Swipe up | Jump |
+| Swipe down | Drop through scaffolding |
+| Hold still | Lock: plant your feet |
+| Hold and drag | Aim in eight directions (including diagonally down) without moving |
+
+| Right half of the screen | |
+|---|---|
+| Hold | Fire (in the direction you're aiming) |
+| Swipe right or left | Tackle that way |
+| Swipe up | Sunglasses on |
+| Swipe down | Sunglasses off |
+
+The purple **PORTAL** button appears once you have the portal device. A guide
+to the gestures shows at the start of each run.
+
+| Keyboard | |
+|---|---|
+| Arrows or WASD | Move / aim (8 directions) |
+| Z, J or Space | Jump (down + jump drops through scaffolding) |
+| X or K | Fire (hold) |
+| F or H | Tackle |
+| Shift or R (hold) | Lock: stand still, the arrows only aim |
+| G, C or L | Sunglasses on/off |
+| V, Q or E | Portal device |
+| P or Esc | Pause |
 
 Hold down to crouch under shots that fly straight at you.
 
-**Tackle** is a quick shoulder charge in the direction you're facing. You
-can't be hurt during it, it flattens most lizards in one hit, and tackling a
-snatcher knocks the child out of its grip so they can run away. It recharges
-in under a second and works in midair too.
+**Tackle** is a quick shoulder charge. You can't be hurt during it, it
+flattens most lizards in one hit, and tackling a snatcher knocks the child out
+of its grip so they can run away. It recharges in under a second and works in
+midair too.
 
-While locked you can aim in all eight directions without moving, including
-diagonally down, turn around in place, crouch and jump straight up. A dotted
-line shows where your shots will go.
+### View
+
+The default **CLOSE** view zooms in so everyone is bigger. It always shows the
+whole sewer lane and the city street, cropping the empty sky; it only rises
+when you climb high or jump near the top. If a snatcher carrying a child is
+ever out of view, an arrow at the screen edge warns you. **VIEW: FULL** (title or pause menu)
+shows both lanes whole, all the time.
 
 ## Install on Android (APK)
 
