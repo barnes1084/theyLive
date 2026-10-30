@@ -175,7 +175,7 @@ export function createGame(save) {
 
   g.showTitle = function () {
     g.mode = 'title';
-    playMusic('tunnel');
+    playMusic('title');
     g.menu = {
       items: [
         { label: 'START', action: () => g.newRun() },
