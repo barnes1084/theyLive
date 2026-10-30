@@ -31,7 +31,7 @@ export function render(ctx, g, usingTouch, input) {
 
   if (g.mode === 'title') {
     drawTitle(ctx, g, usingTouch);
-    drawMenu(ctx, g, 150);
+    drawMenu(ctx, g, 138);
     return;
   }
 
@@ -158,12 +158,12 @@ function drawTouchHelp(ctx, g) {
     ['TAP: STOP', 'SWIPE UP: SHADES ON'],
     ['HOLD + DRAG: AIM', 'SWIPE DOWN: SHADES OFF'],
   ];
-  panel(ctx, 6, H - 66, w / 2 - 12, 58, 0.55);
-  panel(ctx, w / 2 + 6, H - 66, w / 2 - 12, 58, 0.55);
+  panel(ctx, 6, 40, w / 2 - 12, 58, 0.55);
+  panel(ctx, w / 2 + 6, 40, w / 2 - 12, 58, 0.55);
   rows.forEach(([l, r], i) => {
     const color = i === 0 ? '#f8d800' : '#ffffff';
-    drawTextOutlined(ctx, l, w / 4, H - 61 + i * 10, color, 1, 'center');
-    drawTextOutlined(ctx, r, (w * 3) / 4, H - 61 + i * 10, color, 1, 'center');
+    drawTextOutlined(ctx, l, w / 4, 45 + i * 10, color, 1, 'center');
+    drawTextOutlined(ctx, r, (w * 3) / 4, 45 + i * 10, color, 1, 'center');
   });
   ctx.globalAlpha = 1;
 }
@@ -571,7 +571,7 @@ function drawLairBack(ctx, g, camX) {
   bands(ctx, 0, 0, W, H, [[0, '#08040e'], [0.6, '#1c0c34'], [1, '#2c1048']], 40);
   // The broadcast screen everyone has been watching.
   const cx = q((ARENA_COLS / 2) * TILE - camX);
-  const top = 30;
+  const top = 136;
   bevelBox(ctx, cx - 82, top - 2, 164, 104, '#4c4c5c', 2);
   ctx.fillStyle = '#060c06';
   ctx.fillRect(cx - 76, top + 4, 152, 92);
@@ -598,7 +598,7 @@ function drawLairBack(ctx, g, camX) {
   ctx.fillStyle = 'rgba(0,0,0,0.25)';
   for (let y = top + 4; y < top + 96; y += 1) ctx.fillRect(cx - 76, y, 152, P);
   // Pillars
-  for (const x of [4, 13, 27, 36]) {
+  for (const x of [2, ARENA_COLS - 3]) {
     const px = q(x * TILE - camX);
     ctx.fillStyle = '#2c1c54';
     ctx.fillRect(px, 0, 12, H);
@@ -1128,17 +1128,17 @@ function drawHud(ctx, g) {
 
   const part = { street: 1, boss: 2 }[g.areaKey];
   drawTextOutlined(ctx, `STAGE ${g.stageNum}-${part}`, W / 2, 4, '#ffffff', 1, 'center');
-  panel(ctx, W - 58, 2, 38, 16);
-  drawTextOutlined(ctx, String(g.score).padStart(7, '0'), W - 22, 4, '#ffffff', 1, 'right');
-  drawTextOutlined(ctx, WEAPON_INFO[g.weapon].name, W - 22, 11, '#f8d800', 1, 'right');
-  if (g.player?.planted) drawTextOutlined(ctx, 'LOCKED', W - 22, 21, '#f8d800', 1, 'right');
+  panel(ctx, W - 82, 2, 53, 16);
+  drawTextOutlined(ctx, String(g.score).padStart(7, '0'), W - 32, 4, '#ffffff', 1, 'right');
+  drawTextOutlined(ctx, WEAPON_INFO[g.weapon].name, W - 32, 11, '#f8d800', 1, 'right');
+  if (g.player?.planted) drawTextOutlined(ctx, 'LOCKED', W - 32, 21, '#f8d800', 1, 'right');
 
   // Pause button
-  panel(ctx, W - 17, 2, 14, 12);
+  panel(ctx, W - 26, 2, 23, 21);
   ctx.fillStyle = '#ffffff';
-  ctx.fillRect(W - 13, 4.5, 2, 7);
-  ctx.fillRect(W - 8.5, 4.5, 2, 7);
-  g.pauseRect = { x: W - 24, y: 0, w: 24, h: 18 };
+  ctx.fillRect(W - 19.5, 6.5, 3.5, 12);
+  ctx.fillRect(W - 13, 6.5, 3.5, 12);
+  g.pauseRect = { x: W - 40, y: 0, w: 40, h: 32 };
 
   const b = g.boss;
   if (b && !b.dead) {
@@ -1169,22 +1169,23 @@ function drawMenu(ctx, g, top) {
   const m = g.menu;
   if (!m) return;
   const W = g.screenW;
-  const bw = 116;
-  const bh = 15;
+  // Big, thumb-sized buttons.
+  const bw = 220;
+  const bh = 32;
   m.items.forEach((item, i) => {
     const label = typeof item.label === 'function' ? item.label() : item.label;
     const x = Math.round(W / 2 - bw / 2);
-    const y = top + i * (bh + 4);
+    const y = top + i * (bh + 8);
     const sel = i === m.sel;
-    if (sel) glow(ctx, W / 2, y + bh / 2, 40, '#f8d800', 0.18 + Math.sin(g.time * 5) * 0.06);
+    if (sel) glow(ctx, W / 2, y + bh / 2, 80, '#f8d800', 0.18 + Math.sin(g.time * 5) * 0.06);
     bands(ctx, x, y, bw, bh, sel ? [[0, '#3c3478'], [1, '#14102c']] : [[0, '#2c2c40'], [1, '#0c0c18']], 6);
     ctx.fillStyle = sel ? '#f8d800' : '#7c7c90';
     ctx.fillRect(x, y, bw, P * 2);
     ctx.fillRect(x, y + bh - P * 2, bw, P * 2);
     ctx.fillRect(x, y, P * 2, bh);
     ctx.fillRect(x + bw - P * 2, y, P * 2, bh);
-    drawTextOutlined(ctx, label, W / 2, y + 5, sel ? '#f8d800' : '#ffffff', 1, 'center');
-    if (sel) drawTextOutlined(ctx, '>', x + 5 + Math.sin(g.time * 8), y + 5, '#f8d800');
+    drawTextOutlined(ctx, label, W / 2, y + 11, sel ? '#f8d800' : '#ffffff', 2, 'center');
+    if (sel) drawTextOutlined(ctx, '>', x + 10 + Math.sin(g.time * 8) * 2, y + 11, '#f8d800', 2);
     g.menuRects.push({ x, y, w: bw, h: bh, index: i });
   });
 }
@@ -1196,22 +1197,22 @@ function dim(ctx, g) {
 
 function drawPaused(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'PAUSED', g.screenW / 2, 70, '#ffffff', 3, 'center');
-  drawMenu(ctx, g, 110);
+  drawTextOutlined(ctx, 'PAUSED', g.screenW / 2, 64, '#ffffff', 3, 'center');
+  drawMenu(ctx, g, 100);
 }
 
 function drawGameOver(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, 'GAME OVER', g.screenW / 2, 56, '#e83030', 3, 'center');
-  drawTextOutlined(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.screenW / 2, 82, '#ffffff', 1, 'center');
-  drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.screenW / 2, 92, '#bcbcc8', 1, 'center');
-  drawTextOutlined(ctx, 'THEY LIVE. WE SLEEP.', g.screenW / 2, 104, '#78f060', 1, 'center');
-  drawMenu(ctx, g, 122);
+  drawTextOutlined(ctx, 'GAME OVER', g.screenW / 2, 36, '#e83030', 3, 'center');
+  drawTextOutlined(ctx, `STAGE ${g.stageNum}   SCORE ${g.score}`, g.screenW / 2, 62, '#ffffff', 1, 'center');
+  drawTextOutlined(ctx, `BEST: STAGE ${g.save.bestStage}   SCORE ${g.save.bestScore}`, g.screenW / 2, 72, '#bcbcc8', 1, 'center');
+  drawTextOutlined(ctx, 'THEY LIVE. WE SLEEP.', g.screenW / 2, 84, '#78f060', 1, 'center');
+  drawMenu(ctx, g, 104);
 }
 
 function drawClear(ctx, g) {
   dim(ctx, g);
-  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.screenW / 2, 58, '#f8d800', 2, 'center');
+  drawTextOutlined(ctx, `STAGE ${g.stageNum} CLEAR!`, g.screenW / 2, 30, '#f8d800', 2, 'center');
   const s = g.stageStats;
   const rows = [
     ['LIZARDS EXPOSED', s.lizards],
@@ -1221,12 +1222,12 @@ function drawClear(ctx, g) {
     ['STAGE BONUS', g.clearInfo.bonus],
     ['SCORE', g.score],
   ];
-  panel(ctx, g.screenW / 2 - 66, 78, 132, 64, 0.5);
+  panel(ctx, g.screenW / 2 - 66, 50, 132, 64, 0.5);
   rows.forEach(([label, value], i) => {
-    drawTextOutlined(ctx, label, g.screenW / 2 - 60, 82 + i * 10, '#ffffff');
-    drawTextOutlined(ctx, String(value), g.screenW / 2 + 60, 82 + i * 10, '#ffffff', 1, 'right');
+    drawTextOutlined(ctx, label, g.screenW / 2 - 60, 54 + i * 10, '#ffffff');
+    drawTextOutlined(ctx, String(value), g.screenW / 2 + 60, 54 + i * 10, '#ffffff', 1, 'right');
   });
-  drawMenu(ctx, g, 152);
+  drawMenu(ctx, g, 128);
 }
 
 function drawTitle(ctx, g, usingTouch) {

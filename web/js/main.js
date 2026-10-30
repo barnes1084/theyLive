@@ -1,5 +1,6 @@
 // Boots the game: canvas sizing, the fixed-step loop, taps and audio.
 import { createGame, loadSave, VIEW_H } from './game.js';
+import { LANE_ROWS, TILE } from './stage.js';
 import { render, RES } from './render.js';
 import { input, setupInput } from './input.js';
 import { unlockAudio, setSound, setMusic } from './audio.js';
@@ -17,16 +18,13 @@ game.onSettingsChanged = () => {
   resize();
 };
 
-// How much closer the camera is in the default CLOSE view.
-const CLOSE_ZOOM = 1.2;
-
 /**
  * The screen (HUD and menus) is always VIEW_H units tall; its width follows
- * the screen's shape. The world is drawn `zoom` times bigger, so the camera
- * sees VIEW_H / zoom of it.
+ * the screen's shape. The world is drawn twice as big, so the camera sees one
+ * lane (half of VIEW_H) at a time: the city or the sewers.
  */
 function resize() {
-  const zoom = save.view === 'full' ? 1 : CLOSE_ZOOM;
+  const zoom = VIEW_H / (LANE_ROWS * TILE);
   const screenW = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
   canvas.width = screenW * RES;
   canvas.height = VIEW_H * RES;

@@ -8,9 +8,9 @@ you turn out to be lizards.
 
 ## How it plays
 
-Every stage is randomly generated, and the stages never end. The screen is
-split in two: the **city** on top and the **sewers** underneath, scrolling
-together.
+Every stage is randomly generated, and the stages never end. Each stage has
+two worlds along the same street: the **city**, and the **sewers** underneath
+it. The screen shows the one you're in.
 
 1. **The city.** Pedestrians walk around, and some of them are lizards in
    disguise. Find the sunglasses (in a box outside a church) to tell them apart.
@@ -109,11 +109,9 @@ midair too.
 
 ### View
 
-The default **CLOSE** view zooms in so everyone is bigger. It always shows the
-whole sewer lane and the city street, cropping the empty sky; it only rises
-when you climb high or jump near the top. If a snatcher carrying a child is
-ever out of view, an arrow at the screen edge warns you. **VIEW: FULL** (title or pause menu)
-shows both lanes whole, all the time.
+The screen shows one world at a time, up close: the city, or the sewers once
+you portal below. If a snatcher drags a child into the other world, a red
+"HELP!" arrow at the screen edge points to it.
 
 ## Install on Android (APK)
 

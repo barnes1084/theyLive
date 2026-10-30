@@ -1,13 +1,13 @@
 // Game rules: the player, weapons, sunglasses, the portal device, people,
 // lizards, the boss, and moving on through the stages.
 
-import { TILE, ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA_FLOOR, WEAPONS, tileAt, isSolid, laneOf, generateStage } from './stage.js';
+import { TILE, ROWS, LANE_ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA_FLOOR, WEAPONS, tileAt, isSolid, laneOf, generateStage } from './stage.js';
 import { sfx, playMusic } from './audio.js';
 import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
 const STEP = 1 / 60;
-const BOSS_Y = ARENA_FLOOR * TILE - 78;
+const BOSS_Y = ARENA_FLOOR * TILE - 46;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
@@ -22,7 +22,7 @@ const AREA_TITLES = { street: 'THE STREETS', boss: 'THE LAIR' };
 const MUSIC = { street: 'city', boss: 'boss' };
 const PORTAL_COOLDOWN = 1.2;
 const TACKLE_TIME = 0.28;
-const TACKLE_SPEED = 240;
+const TACKLE_SPEED = 185;
 const TACKLE_COOLDOWN = 0.7;
 
 // ---------- Saved progress ----------
@@ -31,9 +31,9 @@ const SAVE_KEY = 'theylive-save';
 
 export function loadSave() {
   try {
-    return { bestStage: 0, bestScore: 0, sound: true, music: true, view: 'close', ...JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') };
+    return { bestStage: 0, bestScore: 0, sound: true, music: true, ...JSON.parse(localStorage.getItem(SAVE_KEY) || '{}') };
   } catch {
-    return { bestStage: 0, bestScore: 0, sound: true, music: true, view: 'close' };
+    return { bestStage: 0, bestScore: 0, sound: true, music: true };
   }
 }
 
@@ -101,7 +101,7 @@ function moveY(b, dy, area) {
 }
 
 function applyPhysics(b, dt, area) {
-  b.vy = Math.min(b.vy + GRAVITY * dt, 420);
+  b.vy = Math.min(b.vy + GRAVITY * dt, 340);
   const hitWall = moveX(b, b.vx * dt, area);
   moveY(b, b.vy * dt, area);
   if (b.drop > 0) b.drop -= dt;
@@ -138,7 +138,7 @@ export function createGame(save) {
     areaKey: 'street',
     area: null,
     cam: { x: 0, y: 0 },
-    // Set by main.js from the screen size and the VIEW setting.
+    // Set by main.js from the screen size.
     zoom: 1,
     viewH: VIEW_H,
     screenW: 320,
@@ -179,17 +179,9 @@ export function createGame(save) {
         { label: 'START', action: () => g.newRun() },
         { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
         { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
-        { label: () => `VIEW: ${g.save.view === 'full' ? 'FULL' : 'CLOSE'}`, action: () => g.toggleView() },
       ],
       sel: 0,
     };
-  };
-
-  /** Close follows the player's lane zoomed in; full shows both lanes whole. */
-  g.toggleView = function () {
-    g.save.view = g.save.view === 'full' ? 'close' : 'full';
-    writeSave(g.save);
-    g.onSettingsChanged?.();
   };
 
   g.toggleSetting = function (key) {
@@ -295,9 +287,8 @@ export function createGame(save) {
   /**
    * Moves the camera. Across, it follows the player forward only (Contra
    * style), or tracks them in a boss arena wider than the screen. Up and
-   * down, when zoomed in, it sits at the bottom so the whole sewer lane is
-   * always in view, cropping the sky; it only rises to keep the player's head
-   * on screen when they climb or jump near the top.
+   * down, it shows one world at a time: the city, or the sewers once the
+   * player portals below. In the lair it frames the floor and the boss.
    */
   g.updateCamera = function (dt, snap = false) {
     const p = g.player;
@@ -309,10 +300,8 @@ export function createGame(save) {
       const target = Math.min(p.x - g.W * 0.4, areaW - g.W);
       g.cam.x = snap ? Math.max(0, target) : Math.max(g.cam.x, target);
     }
-    const free = VIEW_H - g.viewH;
-    const head = p.y - p.h - 10;
-    const ty = Math.max(0, Math.min(free, head));
-    g.cam.y = snap ? ty : g.cam.y + (ty - g.cam.y) * Math.min(1, dt * 8);
+    if (g.area.kind === 'boss') g.cam.y = ARENA_FLOOR * TILE + TILE - g.viewH;
+    else g.cam.y = laneOf(p.y) * LANE_ROWS * TILE;
   };
 
   /** Fades to black, swaps area, fades back in. */
@@ -368,7 +357,6 @@ export function createGame(save) {
         { label: 'RESUME', action: () => g.resume() },
         { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
         { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
-        { label: () => `VIEW: ${g.save.view === 'full' ? 'FULL' : 'CLOSE'}`, action: () => g.toggleView() },
         { label: 'QUIT RUN', action: () => g.showTitle() },
       ],
       sel: 0,
@@ -413,13 +401,13 @@ export function createGame(save) {
     }
     g.hearts--;
     p.inv = 1.6;
-    p.vy = -160;
+    p.vy = -126;
     sfx('hurt');
     burst(p.x, p.y - 12, '#d82800', 10);
     if (g.hearts <= 0) {
       g.mode = 'dying';
       g.dyingTimer = 1.6;
-      p.vy = -220;
+      p.vy = -173;
     }
   }
 
@@ -642,13 +630,13 @@ export function createGame(save) {
         damageActor(a, 4);
         p.tackle = 0;
         p.vx = -p.face * 120;
-        p.vy = -180;
+        p.vy = -142;
         continue;
       }
       // Knocks a snatcher's grip loose so the child can run for it.
       if (a.child) freeChild(a);
       a.x += p.face * 12;
-      a.vy = -160;
+      a.vy = -126;
       damageActor(a, 3);
       if (!a.dead) a.flash = 0.2;
     }
@@ -844,10 +832,10 @@ export function createGame(save) {
     if (a.panic) {
       const dir = a.x < g.player.x ? -1 : 1;
       a.face = dir;
-      a.vx = dir * (kid ? 60 : 75);
-      if (a.onGround && !floorAhead(a, g.area, dir)) a.vy = -260;
-    } else walkAround(a, dt, kid ? 16 : 20);
-    if (applyPhysics(a, dt, g.area) && a.onGround) a.vy = -260;
+      a.vx = dir * (kid ? 42 : 54);
+      if (a.onGround && !floorAhead(a, g.area, dir)) a.vy = -205;
+    } else walkAround(a, dt, kid ? 11 : 14);
+    if (applyPhysics(a, dt, g.area) && a.onGround) a.vy = -205;
   }
 
   // ---------- Child snatchers ----------
@@ -907,7 +895,7 @@ export function createGame(save) {
     } else {
       kid.x = a.x;
       kid.y = a.y;
-      kid.vy = -200;
+      kid.vy = -158;
       kid.panic = true;
     }
     sfx('found');
@@ -940,7 +928,7 @@ export function createGame(save) {
       } else {
         const dir = kid.x < a.x ? -1 : 1;
         a.face = dir;
-        a.vx = dir * 75;
+        a.vx = dir * 54;
         if (Math.abs(kid.x - a.x) < 8 && Math.abs(kid.y - a.y) < 12) {
           kid.carriedBy = a;
           a.child = kid;
@@ -978,7 +966,7 @@ export function createGame(save) {
       }
     }
     const hitWall = applyPhysics(a, dt, g.area);
-    if (a.onGround && a.vx && (hitWall || !floorAhead(a, g.area, Math.sign(a.vx)))) a.vy = -290;
+    if (a.onGround && a.vx && (hitWall || !floorAhead(a, g.area, Math.sign(a.vx)))) a.vy = -228;
   }
 
   function updateDisguised(a, dt) {
@@ -989,7 +977,7 @@ export function createGame(save) {
       a.vx = 0;
       a.face = p.x < a.x ? -1 : 1;
     } else {
-      walkAround(a, dt, 20);
+      walkAround(a, dt, 14);
       if (g.rng.chance(dt / 4)) a.glance = 0.9;
     }
     applyPhysics(a, dt, g.area);
@@ -1019,7 +1007,7 @@ export function createGame(save) {
     if (a.charging && Math.abs(p.x - a.x) > 120 && Math.sign(p.x - a.x) !== a.face) a.charging = false;
     a.vx = dir * d.enemySpeed;
     const hitWall = applyPhysics(a, dt, g.area);
-    if (a.onGround && (hitWall || (!floorAhead(a, g.area, dir) && g.rng.chance(0.7)))) a.vy = -290;
+    if (a.onGround && (hitWall || (!floorAhead(a, g.area, dir) && g.rng.chance(0.7)))) a.vy = -228;
   }
 
   function updateGunner(a, dt) {
@@ -1075,7 +1063,7 @@ export function createGame(save) {
     switch (b.pattern) {
       case 'move':
         b.y = b.baseY + Math.sin(t * 2) * 8;
-        if (toward(b.targetX, 70) || b.timer <= 0) {
+        if (toward(b.targetX, 56) || b.timer <= 0) {
           const pool = ['aimed', 'rain'];
           if (n >= 2 || enraged) pool.push('summon');
           if (n >= 3) pool.push('ring');
@@ -1097,7 +1085,7 @@ export function createGame(save) {
         }
         break;
       case 'rain':
-        b.y = b.baseY - 20;
+        b.y = b.baseY - 8;
         if (b.count === 0) b.targetX = b.x < (left + right) / 2 ? right : left;
         b.count = 1;
         if (b.timer <= 0) {
@@ -1105,7 +1093,7 @@ export function createGame(save) {
           sfx('plasma');
           b.timer = enraged ? 0.18 : 0.26;
         }
-        if (toward(b.targetX, 85)) nextBossMove(b);
+        if (toward(b.targetX, 68)) nextBossMove(b);
         break;
       case 'summon':
         b.y = b.baseY + Math.sin(t * 4) * 4;
@@ -1136,8 +1124,8 @@ export function createGame(save) {
           b.count = 1;
         }
         if (b.count === 1) {
-          toward(b.diveX, 110);
-          b.y = Math.min(b.y + 150 * dt, ARENA_FLOOR * TILE);
+          toward(b.diveX, 88);
+          b.y = Math.min(b.y + 120 * dt, ARENA_FLOOR * TILE);
           if (b.y >= ARENA_FLOOR * TILE) {
             b.count = 2;
             g.shake = 0.3;
@@ -1145,7 +1133,7 @@ export function createGame(save) {
             for (const dir of [-1, 1]) g.shots.push({ x: b.x, y: b.y - 4, vx: dir * 110, vy: 0, life: 3, r: 3 });
           }
         } else {
-          b.y -= 90 * dt;
+          b.y -= 72 * dt;
           if (b.y <= b.baseY) nextBossMove(b);
         }
         break;

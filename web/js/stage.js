@@ -17,9 +17,10 @@ export const ROWS = LANE_ROWS * 2;
 
 // Player physics live here so the generator and the tests agree with the
 // game about how far the player can jump.
-export const GRAVITY = 900;
-export const JUMP_V = 320;
-export const RUN_SPEED = 90;
+// A floaty, unhurried arc: about 3.6 tiles high and 3.7 tiles long.
+export const GRAVITY = 560;
+export const JUMP_V = 255;
+export const RUN_SPEED = 65;
 
 export const T = { AIR: 0, SOLID: 1, ONEWAY: 2, CRATE: 3, SLUDGE: 4 };
 
@@ -38,7 +39,7 @@ export function difficulty(stage) {
     maxGap: stage === 1 ? 2 : 3,
     sewerSpacing: [Math.max(4, 8 - Math.floor(s / 2)), Math.max(6, 11 - Math.floor(s / 2))],
     waveDelay: Math.max(1.0, 2.8 - 0.18 * s),
-    enemySpeed: 55 + 3 * s,
+    enemySpeed: 38 + 2 * s,
     fireDelay: Math.max(1.1, 2.2 - 0.11 * s),
     bossHp: 45 + 18 * (stage - 1),
   };
@@ -261,7 +262,8 @@ function generateStreet(cityRng, sewerRng, diff) {
   return area;
 }
 
-export const ARENA_COLS = 40;
+// About one screen wide, so the boss fight is always fully in view.
+export const ARENA_COLS = 20;
 export const ARENA_FLOOR = 16;
 
 function generateBoss() {
@@ -274,9 +276,6 @@ function generateBoss() {
     set(area, 0, r, T.SOLID);
     set(area, ARENA_COLS - 1, r, T.SOLID);
   }
-  for (let c = 5; c <= 10; c++) set(area, c, 13, T.ONEWAY);
-  for (let c = 29; c <= 34; c++) set(area, c, 13, T.ONEWAY);
-  for (let c = 16; c <= 23; c++) set(area, c, 10, T.ONEWAY);
   area.startX = 4 * TILE;
   return area;
 }
