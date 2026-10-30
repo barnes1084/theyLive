@@ -1,6 +1,7 @@
 # They Live
 
-A 16-bit, Contra-style run-and-gun for Android, inspired by the cult film.
+A Contra-style run-and-gun for Android, inspired by the cult film, with smooth
+vector graphics and a synthesized metal soundtrack.
 You're a drifter construction worker with a wrestler's build, a blond mullet, a white tank top and a spread gun. Somewhere on the street is a pair
 of sunglasses. Put them on and the city turns black and white, the billboards
 show their real messages (OBEY, CONSUME, SLEEP), and some of the people around
@@ -127,16 +128,18 @@ but use a private key before publishing it anywhere.
 ```sh
 npm start      # serves web/ at http://localhost:8080
 npm test       # checks generated stages can always be finished
-npm run icons  # redraws the app icons
+npm run icons  # redraws the app icons (needs Playwright)
 ```
 
 ## Layout
 
 - `web/js/stage.js`: endless stage generator, two lanes per level (shared with the tests)
 - `web/js/game.js`: game rules (player, weapons, glasses, portal device, enemies, boss, flow)
-- `web/js/render.js`: drawing at twice the world resolution, parallax backgrounds, sewer lighting, the black-and-white "truth" view, HUD and menus
-- `web/js/sprites.js`: pixel-art sprites and palettes, the Scale2x/Scale3x smoothing and automatic shading that give them their 16-bit look, detailed tiles, and the pixel font
-- `web/js/audio.js`: chiptune music and sound effects made with Web Audio
+- `web/js/render.js`: drawing at the screen's full resolution, parallax backgrounds, sewer and torch lighting, the black-and-white "truth" view, HUD and menus
+- `web/js/art.js`: the vector art: jointed, animated figures (the hero, people, lizards, cultists), the Moloch idol, and the tiles
+- `web/js/hero.js`: the hero's pose and rifle muzzle, shared by the rules and the renderer
+- `web/js/audio.js`: sound effects and metal music (distorted power chords through an amp and cabinet, bass, lead guitar, drums) made with Web Audio
+- `web/fonts/`: the Russo One font, under the SIL Open Font License (`OFL.txt`)
 - `web/js/input.js`: keyboard and touch controls
 - `test/stage.test.mjs`: checks both lanes of every stage can be finished with the player's jump
 - `android/`: Android app that bundles `web/` into a full-screen WebView

@@ -1,7 +1,7 @@
 // Boots the game: canvas sizing, the fixed-step loop, taps and audio.
 import { createGame, loadSave, VIEW_H } from './game.js';
 import { LANE_ROWS, TILE } from './stage.js';
-import { render, RES } from './render.js';
+import { render } from './render.js';
 import { input, setupInput } from './input.js';
 import { unlockAudio, setSound, setMusic } from './audio.js';
 
@@ -26,8 +26,6 @@ game.onSettingsChanged = () => {
 function resize() {
   const zoom = VIEW_H / (LANE_ROWS * TILE);
   const screenW = Math.max(400, Math.min(700, Math.round((VIEW_H * innerWidth) / innerHeight)));
-  canvas.width = screenW * RES;
-  canvas.height = VIEW_H * RES;
   game.screenW = screenW;
   game.zoom = zoom;
   game.viewH = VIEW_H / zoom;
@@ -36,6 +34,10 @@ function resize() {
   const scale = Math.min(innerWidth / screenW, innerHeight / VIEW_H);
   canvas.style.width = `${screenW * scale}px`;
   canvas.style.height = `${VIEW_H * scale}px`;
+  // Draw at the device's real resolution so the vector art stays sharp.
+  const dpr = Math.min(devicePixelRatio || 1, 2);
+  canvas.height = Math.round(VIEW_H * scale * dpr);
+  canvas.width = Math.round((canvas.height * screenW) / VIEW_H);
 }
 addEventListener('resize', resize);
 resize();
@@ -68,6 +70,7 @@ document.addEventListener('visibilitychange', () => {
 });
 
 game.showTitle();
+document.fonts?.load('16px "Russo One"').catch(() => {});
 
 const coarse = matchMedia('(pointer: coarse)').matches;
 

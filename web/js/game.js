@@ -3,7 +3,7 @@
 
 import { TILE, ROWS, LANE_ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA_FLOOR, WEAPONS, tileAt, isSolid, laneOf, generateStage } from './stage.js';
 import { sfx, playMusic } from './audio.js';
-import { heroMuzzle } from './sprites.js';
+import { heroMuzzle } from './hero.js';
 import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
@@ -175,7 +175,7 @@ export function createGame(save) {
 
   g.showTitle = function () {
     g.mode = 'title';
-    playMusic('tunnel');
+    playMusic('title');
     g.menu = {
       items: [
         { label: 'START', action: () => g.newRun() },
