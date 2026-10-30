@@ -35,24 +35,25 @@ const C = COLORS;
 
 // ---------- Body parts (12 px wide) ----------
 
+// People have round faces and a one-pixel nose; only lizards get snouts.
 const HEAD_HUMAN = [
-  '....hhhh....',
-  '...hhhhhhh..',
-  '..Hhhsssss..',
-  '..Hhsssesss.',
+  '...hhhhh....',
+  '..hhhhhhh...',
+  '..Hhhssss...',
+  '..Hhsssess..',
   '..Hhssssss..',
-  '..H.sssss...',
-  '.....sss....',
+  '..H.ssss....',
+  '....sss.....',
 ];
 
 const HEAD_CAP = [
   '...cccccc...',
-  '..ccccccccc.',
+  '..cccccccc..',
+  '...hssss....',
+  '...hssess...',
   '...hsssss...',
-  '...hssesss..',
-  '...hsssss...',
-  '....sssss...',
-  '.....sss....',
+  '....ssss....',
+  '....sss.....',
 ];
 
 const HEAD_LIZARD = [
@@ -65,27 +66,6 @@ const HEAD_LIZARD = [
   '....ggg.....',
 ];
 
-// The hero: hard hat, square jaw and a blond mullet down the back of his neck.
-const HEAD_PLAYER = [
-  '...yyyyy....',
-  '..yyyyyyy...',
-  '.yyyyyyyyyy.',
-  '..hhssssss..',
-  '..hhsssesss.',
-  '.hhhssssss..',
-  '.hh.ssssss..',
-];
-
-const HEAD_PLAYER_SHADES = [
-  '...yyyyy....',
-  '..yyyyyyy...',
-  '.yyyyyyyyyy.',
-  '..hhssssss..',
-  '..hhssEEEEE.',
-  '.hhhssssss..',
-  '.hh.ssssss..',
-];
-
 const TORSO = [
   '...ttkttt...',
   '..tttktttt..',
@@ -93,18 +73,6 @@ const TORSO = [
   '..tttktttt..',
   '..tttttttt..',
   '..sbbbbbbs..',
-  '...pppppp...',
-];
-
-// A construction worker with a wrestler's build: broad bare shoulders, big arms
-// and a white tank top.
-const TORSO_PLAYER = [
-  '.sssswwssss.',
-  'sssswwwwssss',
-  'sssswwwwwsss',
-  'ss.wwwwwww.s',
-  'ss.wwwwwww.s',
-  '.s.bbbkbbb.s',
   '...pppppp...',
 ];
 
@@ -152,13 +120,194 @@ const LEGS = {
   crouch: ['..pppppppp..', '.ppp....ppp.', '.fff....ffff'],
 };
 
+// ---------- The hero ----------
+// Contra-style poses, 20 px wide and 28 tall, facing right: the arms and
+// rifle are part of each pose. His body sits in the middle columns, so
+// x - 10 lines him up with his hitbox; the top rows leave room to aim up.
+
+const HERO_HEAD = [
+  '.......yyyy.........',
+  '......yyyyyy........',
+  '.....yyyyyyyyy......',
+  '......hhssss........',
+  '......hhsses........',
+  '......hhssss........',
+  '.......hjjj.........',
+];
+const HERO_SHADES_ROW = '......hhsEEEE.......';
+const BLANK = '....................';
+
+// 'a' is the arms, a shade darker than the face so they read separately.
+const HERO_TORSO = {
+  // Rifle level at the chest: front hand on the barrel, back hand on the grip.
+  fwd: [
+    '......aawwwwaa......',
+    '.....aaawwwwaaa.....',
+    '.....aa.wwwwaaaggggg',
+    '.....aa.wwwwaagggGg.',
+    '......aaaaaaaa.g....',
+    '........wwwwww......',
+    '........bbkbbb......',
+    '........pppppp......',
+  ],
+  // Rifle straight up, both hands on it in front of the face.
+  up: [
+    '......aawwwwa.aa....',
+    '.....aaawwwwaaa.....',
+    '.....aa.wwwwaa......',
+    '.....aa.wwwww.......',
+    '......a.wwwww.......',
+    '........wwwwww......',
+    '........bbkbbb......',
+    '........pppppp......',
+  ],
+  diagUp: [
+    '......aawwwwaaa.....',
+    '.....aaawwwwaa......',
+    '.....aa.wwwwa.......',
+    '.....aa.wwwww.......',
+    '......a.wwwww.......',
+    '........wwwwww......',
+    '........bbkbbb......',
+    '........pppppp......',
+  ],
+  diagDown: [
+    '......aawwwwaa......',
+    '.....aaawwwwaaa.....',
+    '.....aa.wwwwaaa.....',
+    '.....aa.wwwwwaagg...',
+    '......aaaaaaaa..gg..',
+    '........wwwwww...gg.',
+    '........bbkbbb....gg',
+    '........pppppp.....g',
+  ],
+};
+
+const HERO_LEGS = {
+  stand: [
+    '.........pp.pp......',
+    '.........pp.pp......',
+    '.........pp.pp......',
+    '.........pp.pp......',
+    '.........pp.pp......',
+    '.........ff.fff.....',
+    '........fff.ffff....',
+  ],
+  walk1: [
+    '........ppp.ppp.....',
+    '........pp...pp.....',
+    '.......pp.....pp....',
+    '.......pp.....pp....',
+    '......pp.......pp...',
+    '......ff.......ff...',
+    '.....fff.......fff..',
+  ],
+  walk2: [
+    '..........ppp.......',
+    '..........ppp.......',
+    '..........pp........',
+    '..........pp........',
+    '..........pp........',
+    '..........ff........',
+    '..........ffff......',
+  ],
+  kneel: [
+    '........pppppp......',
+    '.......ppp..pff.....',
+    '.......fff..fff.....',
+  ],
+};
+
+/** Rows above the head: empty, except the rifle when aiming up. */
+function heroTop(pose) {
+  return pose === 'up' ? Array(6).fill('.............gg.....') : Array(6).fill(BLANK);
+}
+
+/** Adds the raised rifle and hands to the head rows. */
+function heroHead(pose, shades) {
+  const head = HERO_HEAD.map((r, i) => (i === 4 && shades ? HERO_SHADES_ROW : r));
+  const put = (row, c, ch) => row.slice(0, c) + ch + row.slice(c + ch.length);
+  if (pose === 'up') return head.map((r, i) => put(r, 13, i >= 5 ? 'aa' : 'gg'));
+  if (pose === 'diagUp') {
+    const marks = { 3: [19, 'g'], 4: [18, 'gg'], 5: [17, 'gg'], 6: [14, 'aggg'] };
+    return head.map((r, i) => (marks[i] ? put(r, marks[i][0], marks[i][1]) : r));
+  }
+  return head;
+}
+
+/** The whole 20 x 28 grid for a pose. */
+function heroGrid(pose, legs, shades) {
+  if (pose === 'crouch') {
+    const rows = [...heroHead('fwd', shades), ...HERO_TORSO.fwd.slice(0, 6), ...HERO_LEGS.kneel];
+    return [...Array(28 - rows.length).fill(BLANK), ...rows];
+  }
+  return [...heroTop(pose), ...heroHead(pose, shades), ...HERO_TORSO[pose], ...HERO_LEGS[legs]];
+}
+
+// The somersault: curled into a ball, drawn in four rotations.
+const HERO_BALL = [
+  '.....yyyy.....',
+  '...yyyyyyyy...',
+  '..yyyyyyyyyy..',
+  '.hhsssssssshh.',
+  '.hssseessssss.',
+  'sswwwwwwwwssss',
+  'sswwwwwwwwwsss',
+  'sswwwwwwwwwwss',
+  '.sbbbkbbbbbss.',
+  '.pppppppppppp.',
+  '..pppppppppp..',
+  '..ffpppppfff..',
+  '...fff..fff...',
+  '..............',
+];
+
+function rotate(grid) {
+  const h = grid.length;
+  const w = grid[0].length;
+  const out = [];
+  for (let x = 0; x < w; x++) {
+    let row = '';
+    for (let y = h - 1; y >= 0; y--) row += grid[y][x];
+    out.push(row);
+  }
+  return out;
+}
+
+/** Where the muzzle is for each pose, relative to the feet, facing right. */
+export const HERO_MUZZLE = {
+  fwd: [9.5, -13],
+  up: [4, -27.5],
+  diagUp: [9.5, -18.5],
+  diagDown: [9.5, -7.5],
+  crouch: [9.5, -6.5],
+  ball: [0, -11],
+};
+
+/** Which pose the hero is in, from how he's moving and aiming. */
+export function heroPose(p) {
+  if (!p.onGround && !(p.tackle > 0)) return 'ball';
+  if (p.crouch || p.tackle > 0) return 'crouch';
+  if (p.aim.y < 0) return p.aim.x ? 'diagUp' : 'up';
+  if (p.aim.y > 0 && p.aim.x) return 'diagDown';
+  return 'fwd';
+}
+
+/** Muzzle position in world pixels for the hero's current pose. */
+export function heroMuzzle(p) {
+  const pose = heroPose(p);
+  if (pose === 'ball') return { x: p.x + p.aim.x * 8, y: p.y - 11 + p.aim.y * 8 };
+  const [mx, my] = HERO_MUZZLE[pose];
+  return { x: p.x + mx * p.face, y: p.y + my };
+}
+
 // Children: smaller, 12 x 15.
 const HEAD_CHILD = [
   '....hhhh....',
   '...hhhhhh...',
-  '...hsssss...',
-  '...hssesss..',
-  '....sssss...',
+  '...hhssss...',
+  '...hssess...',
+  '....ssss....',
   '.....ss.....',
 ];
 
@@ -201,7 +350,7 @@ const LIZARD_SKIN = { g: C.green, y: C.yellow, e: C.black, m: C.darkRed };
 /** A lizard in its own skin, as seen in the tunnels. */
 const LIZARD_BODY = { ...LIZARD_SKIN, s: C.green, t: C.green, k: C.lime, b: C.darkGreen, p: C.darkGreen, f: C.lime };
 
-const PLAYER = { y: C.yellow, h: '#e8c058', s: '#f0a868', e: C.black, E: C.black, w: '#f4f4ee', k: C.yellow, b: C.brown, p: C.blue, f: C.brown };
+const PLAYER = { y: C.yellow, h: '#e8c058', s: '#f0a868', a: '#d88c58', j: '#c87848', e: C.black, E: C.black, w: '#f4f4ee', k: C.yellow, b: C.brown, p: C.blue, f: C.brown, g: '#34343e', G: '#8c8ca0' };
 
 // ---------- Color helpers ----------
 
@@ -435,10 +584,19 @@ export function childSprite(look, pose, flip) {
   });
 }
 
-export function playerSprite(pose, shades, flip) {
-  return cached(`pl:${pose}:${shades}:${flip}`, () =>
-    makeSprite(body(shades ? HEAD_PLAYER_SHADES : HEAD_PLAYER, TORSO_PLAYER, pose), PLAYER, flip),
-  );
+/**
+ * The hero. pose: 'fwd' | 'up' | 'diagUp' | 'diagDown' | 'crouch' | 'ball';
+ * legs: 'stand' | 'walk1' | 'walk2'; frame: which way up the somersault is.
+ */
+export function playerSprite(pose, legs, shades, flip, frame = 0) {
+  return cached(`pl:${pose}:${legs}:${shades}:${flip}:${pose === 'ball' ? frame : 0}`, () => {
+    if (pose === 'ball') {
+      let grid = HERO_BALL;
+      for (let i = 0; i < frame; i++) grid = rotate(grid);
+      return makeSprite(grid, PLAYER, flip);
+    }
+    return makeSprite(heroGrid(pose, legs, shades), PLAYER, flip);
+  });
 }
 
 // ---------- The temple ----------

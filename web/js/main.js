@@ -83,8 +83,11 @@ function frame(now) {
   }
   const playing = game.mode === 'play' || game.mode === 'transition';
   document.body.classList.toggle('playing', playing);
+  document.body.classList.toggle('no-shades', !game.glasses.have);
+  document.body.classList.toggle('shades-on', game.glasses.on);
+  document.body.classList.toggle('locked', input.lockToggle);
   document.body.classList.toggle('no-portal', !game.portal.have || game.areaKey !== 'street');
-  render(ctx, game, input.usingTouch || coarse, input);
+  render(ctx, game, input.usingTouch || coarse);
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

@@ -1,15 +1,6 @@
 // Keyboard and touch input, merged into one set of buttons:
-// left, right, up, down, jump, fire, tackle, glasses, portal, lock, pause,
-// plus a few that only touch gestures produce (glassesOn, glassesOff, drop).
+// left, right, up, down, jump, fire, tackle, glasses, portal, lock, pause.
 // `held` is what is down right now; `pressed` is what went down this frame.
-//
-// Touch uses swipes instead of on-screen buttons, so nothing covers the game:
-//   left half:  swipe right/left = keep walking that way, swipe up = jump,
-//               swipe down = drop through scaffolding, tap = stop,
-//               hold = plant your feet, hold and drag = aim
-//   right half: hold = fire, swipe right/left = tackle that way,
-//               swipe up = sunglasses on, swipe down = sunglasses off
-//   the portal device keeps a button.
 
 const KEYS = {
   ArrowLeft: 'left', KeyA: 'left',
@@ -31,22 +22,19 @@ export const input = {
   pressed: {},
   latch: {}, // presses too quick to still be down at the next step
   keys: {},
-  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, lock: false },
+  touch: { left: false, right: false, up: false, down: false, jump: false, fire: false, tackle: false, glasses: false, portal: false },
   usingTouch: false,
-  // Touch gesture state, also read by the renderer for feedback.
-  walkDir: 0,
-  holding: null, // { x, y, aimX, aimY } in screen pixels while the left thumb holds
-  tackleDir: 0,
-  jumpUntil: 0, // a swipe up holds jump this long, for a full-height jump
+  // The touch lock button is a toggle: thumbs are busy, so it stays on until tapped again.
+  lockToggle: false,
 
   isDown(name) {
-    if (name === 'jump' && performance.now() < this.jumpUntil) return true;
+    if (name === 'lock' && this.lockToggle) return true;
     return !!(this.keys[name] || this.touch[name]);
   },
 
   /** Recomputes held/pressed; call once per game step. */
   update() {
-    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'tackle', 'glasses', 'glassesOn', 'glassesOff', 'drop', 'portal', 'lock', 'pause', 'start'];
+    const names = ['left', 'right', 'up', 'down', 'jump', 'fire', 'tackle', 'glasses', 'portal', 'lock', 'pause', 'start'];
     for (const n of names) {
       const down = this.isDown(n);
       this.pressed[n] = (down && !this.held[n]) || !!this.latch[n];
@@ -77,12 +65,10 @@ export function setupInput(touchLayer, onTap) {
     releaseAll();
   });
 
-  const portalButton = touchLayer.querySelector('#btn-portal');
-  const pointers = new Map(); // pointerId -> gesture
-  const HOLD_MS = 220; // still this long = a hold
-  const TAP_MS = 260; // released this fast without moving = a tap
-  const swipeDist = () => Math.max(26, innerHeight * 0.07);
-  const STILL = 12; // px of wobble allowed in a tap or hold
+  const stick = touchLayer.querySelector('#stick');
+  const knob = touchLayer.querySelector('#knob');
+  const buttons = [...touchLayer.querySelectorAll('.btn')];
+  const pointers = new Map(); // pointerId -> { kind: 'stick' | 'button' | 'tap', name, ox, oy }
 
   function showTouch() {
     if (input.usingTouch) return;
@@ -93,48 +79,60 @@ export function setupInput(touchLayer, onTap) {
   function releaseAll() {
     pointers.clear();
     for (const k of Object.keys(input.touch)) input.touch[k] = false;
-    input.walkDir = 0;
-    input.holding = null;
-    portalButton?.classList.remove('down');
+    knob.style.transform = '';
+    stick.classList.remove('active');
+    stick.style.left = stick.style.top = '';
+    buttons.forEach((b) => b.classList.remove('down'));
   }
 
-  /** Recomputes the touch flags from walking, holding and the right thumb. */
-  function refresh() {
+  function setStick(dx, dy) {
+    const size = stick.offsetWidth / 2;
+    const len = Math.hypot(dx, dy);
+    const max = size * 0.6;
+    const k = len > max ? max / len : 1;
+    knob.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
     const t = input.touch;
-    const h = input.holding;
-    t.lock = !!h;
-    t.left = t.right = t.up = false;
-    t.down = false;
-    if (h) {
-      // Aiming: eight directions from the hold point.
-      const dx = h.aimX - h.x;
-      const dy = h.aimY - h.y;
-      if (Math.hypot(dx, dy) > STILL) {
-        const octant = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8;
-        t.right = octant === 0 || octant === 1 || octant === 7;
-        t.down = octant === 1 || octant === 2 || octant === 3;
-        t.left = octant === 3 || octant === 4 || octant === 5;
-        t.up = octant === 5 || octant === 6 || octant === 7;
-      }
-    } else {
-      t.right = input.walkDir > 0;
-      t.left = input.walkDir < 0;
-    }
-    let fire = false;
-    let jump = false;
-    for (const p of pointers.values()) {
-      if (p.side === 'right' && !p.swiped) fire = true;
-      if (p.side === 'left' && p.swipe === 'up') jump = true;
-      if (p.side === 'left' && p.swipe === 'down') t.down = true;
-    }
-    t.fire = fire;
-    t.jump = jump;
+    t.left = t.right = t.up = t.down = false;
+    if (len < size * 0.22) return;
+    // Eight directions, like a d-pad.
+    const octant = (Math.round(Math.atan2(dy, dx) / (Math.PI / 4)) + 8) % 8;
+    t.right = octant === 0 || octant === 1 || octant === 7;
+    t.down = octant === 1 || octant === 2 || octant === 3;
+    t.left = octant === 3 || octant === 4 || octant === 5;
+    t.up = octant === 5 || octant === 6 || octant === 7;
   }
 
-  function onPortalButton(x, y) {
-    if (!portalButton || getComputedStyle(portalButton).display === 'none') return false;
-    const r = portalButton.getBoundingClientRect();
-    return Math.hypot(x - (r.left + r.width / 2), y - (r.top + r.height / 2)) < (r.width / 2) * 1.3;
+  /** The button under (x, y), with some slack so thumbs can be sloppy. */
+  function buttonAt(x, y) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const b of buttons) {
+      const r = b.getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const cy = r.top + r.height / 2;
+      const d = Math.hypot(x - cx, y - cy) / (r.width / 2);
+      if (d < 1.35 && d < bestDist) {
+        best = b;
+        bestDist = d;
+      }
+    }
+    return best;
+  }
+
+  function refreshButtons() {
+    const active = new Set();
+    for (const p of pointers.values()) if (p.kind === 'button' && p.name) active.add(p.name);
+    for (const b of buttons) {
+      const name = b.dataset.button;
+      if (name === 'lock') {
+        if (active.has(name) && !b.classList.contains('down')) input.lockToggle = !input.lockToggle;
+        b.classList.toggle('down', active.has(name));
+        continue;
+      }
+      if (active.has(name) && !input.touch[name]) input.latch[name] = true;
+      input.touch[name] = active.has(name);
+      b.classList.toggle('down', active.has(name));
+    }
   }
 
   touchLayer.addEventListener('pointerdown', (e) => {
@@ -145,75 +143,54 @@ export function setupInput(touchLayer, onTap) {
     showTouch();
     e.preventDefault();
     if (onTap(e.clientX, e.clientY)) {
-      pointers.set(e.pointerId, { side: 'none' });
+      pointers.set(e.pointerId, { kind: 'tap' });
       return;
     }
     touchLayer.setPointerCapture?.(e.pointerId);
-    if (onPortalButton(e.clientX, e.clientY)) {
-      input.latch.portal = true;
-      portalButton.classList.add('down');
-      pointers.set(e.pointerId, { side: 'portal' });
-      return;
+    if (e.clientX < innerWidth * 0.45) {
+      // The stick appears under the thumb.
+      const half = stick.offsetWidth / 2;
+      const ox = Math.max(half, Math.min(e.clientX, innerWidth * 0.45 - half));
+      const oy = Math.max(half, Math.min(e.clientY, innerHeight - half));
+      stick.style.left = `${ox - half}px`;
+      stick.style.top = `${oy - half}px`;
+      stick.classList.add('active');
+      pointers.set(e.pointerId, { kind: 'stick', ox, oy });
+      setStick(e.clientX - ox, e.clientY - oy);
+    } else {
+      const b = buttonAt(e.clientX, e.clientY);
+      pointers.set(e.pointerId, { kind: 'button', name: b?.dataset.button });
+      refreshButtons();
     }
-    const p = { side: e.clientX < innerWidth / 2 ? 'left' : 'right', sx: e.clientX, sy: e.clientY, t0: performance.now(), moved: 0, swipe: null, swiped: false };
-    pointers.set(e.pointerId, p);
-    if (p.side === 'left') {
-      p.holdTimer = setTimeout(() => {
-        if (pointers.get(e.pointerId) === p && !p.swipe && p.moved < STILL) {
-          p.hold = true;
-          input.holding = { x: p.sx, y: p.sy, aimX: p.sx, aimY: p.sy };
-          refresh();
-        }
-      }, HOLD_MS);
-    }
-    refresh();
   });
 
   touchLayer.addEventListener('pointermove', (e) => {
     const p = pointers.get(e.pointerId);
-    if (!p || !p.sx) return;
-    const dx = e.clientX - p.sx;
-    const dy = e.clientY - p.sy;
-    p.moved = Math.max(p.moved, Math.hypot(dx, dy));
-    if (p.side === 'left') {
-      if (p.hold) {
-        input.holding.aimX = e.clientX;
-        input.holding.aimY = e.clientY;
-      } else if (!p.swipe && Math.hypot(dx, dy) > swipeDist()) {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          p.swipe = 'side';
-          input.walkDir = Math.sign(dx);
-        } else if (dy < 0) {
-          p.swipe = 'up';
-          input.latch.jump = true;
-          input.jumpUntil = performance.now() + 300;
-        } else {
-          p.swipe = 'down';
-          input.latch.drop = true;
-        }
+    if (!p) return;
+    if (p.kind === 'stick') setStick(e.clientX - p.ox, e.clientY - p.oy);
+    else if (p.kind === 'button') {
+      // Slide between fire and jump without lifting the thumb. The glasses
+      // and portal buttons only work on a fresh press.
+      const b = buttonAt(e.clientX, e.clientY);
+      const name = b?.dataset.button;
+      const slides = (n) => n === 'fire' || n === 'jump' || n === undefined;
+      if (name !== p.name && slides(name) && slides(p.name)) {
+        p.name = name;
+        refreshButtons();
       }
-    } else if (p.side === 'right' && !p.swiped && Math.hypot(dx, dy) > swipeDist() && performance.now() - p.t0 < 400) {
-      p.swiped = true;
-      if (Math.abs(dx) > Math.abs(dy)) {
-        input.tackleDir = Math.sign(dx);
-        input.latch.tackle = true;
-      } else if (dy < 0) input.latch.glassesOn = true;
-      else input.latch.glassesOff = true;
     }
-    refresh();
   });
 
   const end = (e) => {
     const p = pointers.get(e.pointerId);
     if (!p) return;
     pointers.delete(e.pointerId);
-    clearTimeout(p.holdTimer);
-    if (p.side === 'portal') portalButton.classList.remove('down');
-    if (p.side === 'left') {
-      if (p.hold) input.holding = null;
-      else if (!p.swipe && p.moved < STILL && performance.now() - p.t0 < TAP_MS) input.walkDir = 0;
-    }
-    refresh();
+    if (p.kind === 'stick') {
+      setStick(0, 0);
+      knob.style.transform = '';
+      stick.classList.remove('active');
+      stick.style.left = stick.style.top = '';
+    } else refreshButtons();
   };
   touchLayer.addEventListener('pointerup', end);
   touchLayer.addEventListener('pointercancel', end);
