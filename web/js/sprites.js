@@ -441,11 +441,74 @@ export function playerSprite(pose, shades, flip) {
   );
 }
 
-/** The boss: a big lizard in a suit, at three times a person's size. */
-export function bossSprite() {
-  return cached('boss', () => {
-    const suit = { ...LIZARD_SKIN, s: C.green, t: '#18182c', k: C.red, b: '#18182c', p: '#18182c', f: C.darkGray };
-    return makeSprite(body(HEAD_LIZARD, TORSO, 'stand'), suit, true, 6);
+// ---------- The temple ----------
+
+// Moloch: a bronze bull-headed idol with outstretched arms and a furnace in
+// its belly. Drawn at three times a person's size.
+const MOLOCH = [
+  'hh............hh',
+  '.hh..........hh.',
+  '.hhh........hhh.',
+  '..hhhbbbbbbhhh..',
+  '...hbbbbbbbbh...',
+  '...bbbbbbbbbb...',
+  '...bbeebbeebb...',
+  '...bbbbbbbbbb...',
+  '....bbnnnnbb....',
+  '....bnmnnmnb....',
+  '.....bnnnnb.....',
+  'aa...bbbbbb...aa',
+  'aaa.bbbbbbbb.aaa',
+  '.aaabbbbbbbbaaa.',
+  '...bbbffffbbb...',
+  '...bbffffffbb...',
+  '...bbffffffbb...',
+  '...bbbffffbbb...',
+  '....bbbbbbbb....',
+  '....bbb..bbb....',
+  '....bbb..bbb....',
+  '...bbbb..bbbb...',
+];
+
+const MOLOCH_AWAKE = { h: '#e8dcb8', b: '#a8743c', a: '#9c6834', e: '#ff3018', n: '#8c5c2c', m: '#200808', f: '#ffb030' };
+const MOLOCH_STONE = { h: '#bcb8b0', b: '#7c7870', a: '#747068', e: '#3c3a38', n: '#6c6860', m: '#2c2a28', f: '#4c4844' };
+
+export function molochSprite(awake, flip) {
+  return cached(`moloch:${awake}:${flip}`, () => makeSprite(MOLOCH, awake ? MOLOCH_AWAKE : MOLOCH_STONE, flip, 6));
+}
+
+// Cultists: lizards in hooded robes. Priests wear purple, zealots red.
+const CULTIST = [
+  '....rrrr....',
+  '...rrrrrr...',
+  '..rrrggggr..',
+  '..rrgggyeg..',
+  '..rrggggggg.',
+  '..rrrggmmm..',
+  '...rrrggg...',
+  '..rrrrrrrr..',
+  '.rrrrkrrrrr.',
+  '.rrrrkrrrrr.',
+  'grrrrrrrrrrg',
+  '.rrrrrrrrrr.',
+  '.rrrrrrrrrr.',
+  '.rrrrrrrrrr.',
+  '..rrrrrrrr..',
+  '..rrrrrrrr..',
+  '..rrrrrrrr..',
+  '..rrrrrrrr..',
+  '..rrrrrrrr..',
+];
+const CULTIST_HEM = {
+  stand: ['.rrrrrrrrrr.', '.rrrrrrrrrr.', '..ff....ff..'],
+  walk1: ['..rrrrrrrrrr', '..rrrrrrrrrr', '...ff...ff..'],
+  walk2: ['rrrrrrrrrr..', 'rrrrrrrrrr..', '.ff....ff...'],
+};
+
+export function cultistSprite(priest, pose, flip) {
+  return cached(`cult:${priest}:${pose}:${flip}`, () => {
+    const pal = { r: priest ? '#4c2470' : '#7c1c24', k: '#f0c840', g: '#3ca850', y: '#f8e030', e: '#000000', m: '#a80020', f: '#2c1c1c' };
+    return makeSprite([...CULTIST, ...(CULTIST_HEM[pose] || CULTIST_HEM.stand)], pal, flip);
   });
 }
 
@@ -545,19 +608,21 @@ function drawSewerStone(px, top, v) {
   }
 }
 
+/** Temple floor: worn red stone with a bronze inlay along the top. */
 function drawLairPanel(px, top, v) {
-  bevel(px, 0, 0, TS, TS, '#2a1c50');
-  px(4, 4, TS - 8, TS - 8, '#221640');
-  px(4, 4, TS - 8, 1, '#120a28');
-  px(5, TS - 6, TS - 10, 1, '#3c2c70');
-  for (const [x, y] of [[2, 2], [TS - 4, 2], [2, TS - 4], [TS - 4, TS - 4]]) {
-    px(x, y, 2, 2, '#6c5ca0');
-    px(x, y, 1, 1, '#a898d8');
+  px(0, 0, TS, TS, '#1c0c08');
+  bevel(px, 1, 1, 15, 15, ['#4c2c24', '#442820'][v % 2]);
+  bevel(px, 17, 1, 15, 15, ['#442820', '#4c2c24'][v % 2]);
+  bevel(px, 1, 17, 31, 15, '#3c241c');
+  if (v % 3 === 0) {
+    px(8, 6, 1, 4, '#2c1810');
+    px(9, 10, 1, 3, '#2c1810');
   }
   if (top) {
-    px(0, 0, TS, 3, '#9878f8');
-    px(0, 0, TS, 1, '#d8c8ff');
-    px(0, 3, TS, 1, '#4c3890');
+    px(0, 0, TS, 3, '#c8883c');
+    px(0, 0, TS, 1, '#ffd890');
+    px(0, 3, TS, 1, '#6c3c18');
+    for (let x = 4; x < TS; x += 8) px(x, 1, 2, 1, '#8c5420');
   }
 }
 

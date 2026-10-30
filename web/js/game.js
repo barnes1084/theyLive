@@ -7,7 +7,9 @@ import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
 const STEP = 1 / 60;
-const BOSS_Y = ARENA_FLOOR * TILE - 46;
+const FLOOR_Y = ARENA_FLOOR * TILE;
+const ALTAR_X = (ARENA_COLS * TILE) / 2;
+export const PEDESTAL_H = 10;
 const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
@@ -18,7 +20,7 @@ export const WEAPON_INFO = {
   S: { name: 'SLUGS', delay: 0.42 },
 };
 
-const AREA_TITLES = { street: 'THE STREETS', boss: 'THE LAIR' };
+const AREA_TITLES = { street: 'THE STREETS', boss: 'THE TEMPLE' };
 const MUSIC = { street: 'city', boss: 'boss' };
 const PORTAL_COOLDOWN = 1.2;
 const TACKLE_TIME = 0.28;
@@ -258,27 +260,7 @@ export function createGame(save) {
       tackleHit: null,
       burstStep: 0,
     };
-    if (key === 'boss') {
-      const d = g.stage.diff;
-      g.boss = {
-        type: 'boss',
-        x: ARENA_COLS * TILE * 0.7,
-        y: BOSS_Y,
-        w: 26,
-        h: 60,
-        vx: 0,
-        hp: d.bossHp,
-        maxHp: d.bossHp,
-        flash: 0,
-        pattern: 'move',
-        timer: 2,
-        count: 0,
-        targetX: ARENA_COLS * TILE * 0.5,
-        baseY: BOSS_Y,
-        name: g.stage.bossName,
-      };
-      g.actors.push(g.boss);
-    }
+    if (key === 'boss') startCeremony();
     g.updateCamera(0, true);
     playMusic(MUSIC[key]);
     g.mode = 'play';
@@ -680,6 +662,7 @@ export function createGame(save) {
       g.shake = Math.max(g.shake, 0.08);
     }
     burst(o.x, o.y, '#f8d800', g.weapon === 'G' ? 4 : 1, 40);
+    if (g.area.kind === 'boss') g.ceremonyAlarm = true;
     // Gunfire sends people running.
     for (const a of g.actors) if (isInnocent(a) && Math.abs(a.x - p.x) < 160 && Math.abs(a.y - p.y) < 80) a.panic = true;
   }
@@ -797,6 +780,15 @@ export function createGame(save) {
   function damageActor(a, dmg) {
     if (a.type === 'boss') {
       if (a.hp <= 0) return;
+      if (a.state !== 'awake') {
+        // Still stone: shots just spark off.
+        burst(a.x + (g.rng.next() - 0.5) * 20, a.y - 20 - g.rng.next() * 40, '#fcfcfc', 2, 50);
+        if (!a.warned) {
+          a.warned = true;
+          addText(a.x, a.y - 76, 'THE IDOL IS STONE... FOR NOW', '#bcbcbc', 2);
+        }
+        return;
+      }
       a.hp -= dmg;
       a.flash = 0.06;
       sfx('hit');
@@ -1040,111 +1032,212 @@ export function createGame(save) {
     }
   }
 
-  // ---------- Boss ----------
+  // ---------- The temple of Moloch ----------
+  // The boss fight is a sacrifice ceremony. Robed cultists chant before a
+  // bronze idol of Moloch; while any of them live the idol is only stone.
+  // Kill them all and the idol wakes, steps off its pedestal and fights.
 
-  function bossShoot(b, angle, speed = 90) {
-    g.shots.push({ x: b.x, y: b.y - 34, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed, life: 5, r: 3 });
+  function startCeremony() {
+    const d = g.stage.diff;
+    g.ceremonyAlarm = false;
+    g.boss = {
+      type: 'boss',
+      x: ALTAR_X,
+      y: FLOOR_Y - PEDESTAL_H,
+      w: 34,
+      h: 62,
+      vx: 0,
+      vy: 0,
+      face: -1,
+      onGround: true,
+      hp: d.bossHp,
+      maxHp: d.bossHp,
+      flash: 0,
+      state: 'dormant',
+      pattern: 'walk',
+      timer: 0,
+      count: 0,
+      step: 0,
+      name: g.stage.bossName,
+    };
+    g.actors.push(g.boss);
+    const n = Math.min(8, 5 + Math.floor(g.stageNum / 2));
+    const spots = [];
+    for (let i = 0; i < n; i++) {
+      // Two arcs of worshippers either side of the altar.
+      const side = i % 2 ? 1 : -1;
+      const rank = Math.floor(i / 2);
+      spots.push(ALTAR_X + side * (36 + rank * 18));
+    }
+    spots.forEach((x, i) => {
+      const a = spawnActor({ type: 'cultist', x, y: FLOOR_Y });
+      a.role = i % 5 === 1 || i % 5 === 4 ? 'priest' : 'zealot';
+      a.chanting = true;
+      a.face = x < ALTAR_X ? 1 : -1;
+      a.anim = i * 0.7;
+    });
   }
+
+  function lob(x, y, tx, ty, flight = 0.9, gravity = 300) {
+    g.shots.push({
+      x,
+      y,
+      vx: (tx - x) / flight,
+      vy: (ty - y - 0.5 * gravity * flight * flight) / flight,
+      g: gravity,
+      life: 4,
+      r: 3,
+      fire: true,
+    });
+  }
+
+  function updateCultist(a, dt) {
+    const p = g.player;
+    const d = g.stage.diff;
+    if (a.chanting) {
+      a.vx = 0;
+      a.face = a.x < ALTAR_X ? 1 : -1;
+      applyPhysics(a, dt, g.area);
+      if (g.ceremonyAlarm || Math.abs(p.x - a.x) < 32) {
+        g.ceremonyAlarm = true;
+        a.chanting = false;
+        a.fireTimer = 0.4 + g.rng.next();
+      }
+      return;
+    }
+    const dx = p.x - a.x;
+    a.face = dx < 0 ? -1 : 1;
+    if (a.role === 'priest') {
+      // Keep some distance and lob fireballs.
+      a.vx = Math.abs(dx) < 60 ? -a.face * d.enemySpeed * 0.6 : 0;
+      a.fireTimer -= dt;
+      if (a.fireTimer <= 0) {
+        a.fireTimer = d.fireDelay * (0.9 + g.rng.next() * 0.4);
+        lob(a.x + a.face * 6, a.y - 16, p.x, p.y - 8);
+        sfx('plasma');
+      }
+      const hitWall = applyPhysics(a, dt, g.area);
+      if (hitWall) a.vx = 0;
+    } else {
+      a.vx = a.face * d.enemySpeed * 1.1;
+      const hitWall = applyPhysics(a, dt, g.area);
+      if (a.onGround && hitWall) a.vy = -228;
+    }
+  }
+
+  function cultistsLeft() {
+    return g.actors.filter((a) => a.type === 'cultist' && !a.dead).length;
+  }
+  g.cultistsLeft = cultistsLeft;
 
   function updateBoss(b, dt) {
     const p = g.player;
     const n = g.stageNum;
-    const enraged = b.hp < b.maxHp * 0.5;
-    b.timer -= dt;
     b.flash -= dt;
-    const left = 3 * TILE;
-    const right = (ARENA_COLS - 3) * TILE;
-    const toward = (tx, speed) => {
-      const dx = tx - b.x;
-      b.x += Math.sign(dx) * Math.min(Math.abs(dx), speed * dt);
-      return Math.abs(dx) < 2;
+    b.timer -= dt;
+    if (b.state === 'dormant') {
+      if (cultistsLeft() === 0) {
+        b.state = 'waking';
+        b.timer = 2.2;
+        g.shots = [];
+        g.shake = 0.6;
+        sfx('reveal');
+        g.banner = { title: 'MOLOCH AWAKENS!', sub: 'DESTROY THE IDOL', t: 2.5 };
+      }
+      return;
+    }
+    if (b.state === 'waking') {
+      g.shake = Math.max(g.shake, 0.1);
+      if (g.rng.chance(dt * 10)) burst(b.x + (g.rng.next() - 0.5) * 30, b.y - g.rng.next() * 60, '#bcb8b0', 3, 40);
+      if (b.timer <= 0) {
+        b.state = 'awake';
+        sfx('explode');
+        b.face = p.x < b.x ? -1 : 1;
+        b.vy = -200;
+        b.vx = b.face * 40;
+        b.pattern = 'walk';
+        b.timer = 2;
+      }
+      return;
+    }
+    // Awake.
+    const enraged = b.hp < b.maxHp * 0.5;
+    const speed = (24 + 2 * n) * (enraged ? 1.5 : 1);
+    const mouth = { x: b.x + b.face * 14, y: b.y - 50 };
+    const belly = { x: b.x + b.face * 8, y: b.y - 26 };
+    const next = () => {
+      const pool = ['fireballs', 'flame', 'stomp'];
+      if (n >= 2 || enraged) pool.push('summon');
+      b.pattern = 'walk';
+      b.timer = enraged ? 1.4 : 2.2;
+      b.next = g.rng.pick(pool);
+      b.count = 0;
     };
-    const t = g.time;
     switch (b.pattern) {
-      case 'move':
-        b.y = b.baseY + Math.sin(t * 2) * 8;
-        if (toward(b.targetX, 56) || b.timer <= 0) {
-          const pool = ['aimed', 'rain'];
-          if (n >= 2 || enraged) pool.push('summon');
-          if (n >= 3) pool.push('ring');
-          if (n >= 4 || enraged) pool.push('dive');
-          b.pattern = g.rng.pick(pool);
-          b.timer = 0.6;
+      case 'walk':
+        b.face = p.x < b.x ? -1 : 1;
+        b.vx = Math.abs(p.x - b.x) > 30 ? b.face * speed : 0;
+        b.step -= dt;
+        if (b.vx && b.onGround && b.step <= 0) {
+          // Heavy footsteps.
+          b.step = 0.55;
+          g.shake = Math.max(g.shake, 0.08);
+          sfx('land');
+        }
+        if (b.timer <= 0) {
+          b.pattern = b.next || 'fireballs';
+          b.timer = 0.4;
           b.count = 0;
         }
         break;
-      case 'aimed':
-        b.y = b.baseY + Math.sin(t * 2) * 8;
+      case 'fireballs':
+        b.vx = 0;
         if (b.timer <= 0) {
-          const a = Math.atan2(p.y - 12 - (b.y - 34), p.x - b.x);
-          const spread = enraged ? [-0.3, -0.15, 0, 0.15, 0.3] : [-0.2, 0, 0.2];
-          spread.forEach((s) => bossShoot(b, a + s, 95 + n * 3));
-          sfx('plasma');
-          b.timer = enraged ? 0.45 : 0.6;
-          if (++b.count >= 3) nextBossMove(b);
+          lob(belly.x, belly.y, p.x + (g.rng.next() - 0.5) * 40, p.y - 6, 0.8 + g.rng.next() * 0.3);
+          sfx('torch');
+          b.timer = enraged ? 0.3 : 0.45;
+          if (++b.count >= (enraged ? 6 : 4)) next();
         }
         break;
-      case 'rain':
-        b.y = b.baseY - 8;
-        if (b.count === 0) b.targetX = b.x < (left + right) / 2 ? right : left;
-        b.count = 1;
+      case 'flame':
+        b.vx = 0;
+        b.face = p.x < b.x ? -1 : 1;
         if (b.timer <= 0) {
-          g.shots.push({ x: b.x, y: b.y, vx: 0, vy: 70, life: 4, r: 3 });
-          sfx('plasma');
-          b.timer = enraged ? 0.18 : 0.26;
+          const ang = Math.atan2(p.y - 12 - mouth.y, p.x - mouth.x) + (g.rng.next() - 0.5) * 0.2;
+          g.shots.push({ x: mouth.x, y: mouth.y, vx: Math.cos(ang) * 140, vy: Math.sin(ang) * 140, life: 0.9, r: 2, fire: true });
+          if (b.count % 4 === 0) sfx('torch');
+          b.timer = 0.06;
+          if (++b.count >= (enraged ? 26 : 18)) next();
         }
-        if (toward(b.targetX, 68)) nextBossMove(b);
+        break;
+      case 'stomp':
+        if (b.count === 0 && b.onGround && b.timer <= 0) {
+          b.vy = -250;
+          b.vx = (p.x < b.x ? -1 : 1) * 50;
+          b.count = 1;
+        } else if (b.count === 1 && b.onGround && b.vy === 0) {
+          b.vx = 0;
+          g.shake = 0.4;
+          sfx('explode');
+          for (const dir of [-1, 1]) g.shots.push({ x: b.x + dir * 18, y: FLOOR_Y - 4, vx: dir * 120, vy: 0, life: 3, r: 3, fire: true });
+          next();
+        }
         break;
       case 'summon':
-        b.y = b.baseY + Math.sin(t * 4) * 4;
+        b.vx = 0;
         if (b.timer <= 0) {
           for (const side of [-1, 1]) {
-            const x = side < 0 ? left : right;
-            const a = spawnActor({ type: 'grunt', x, y: ARENA_FLOOR * TILE });
-            a.face = -side;
+            const a = spawnActor({ type: 'cultist', x: side < 0 ? 2 * TILE : (ARENA_COLS - 2) * TILE, y: FLOOR_Y });
+            a.role = 'zealot';
+            a.chanting = false;
           }
           sfx('reveal');
-          nextBossMove(b);
-        }
-        break;
-      case 'ring':
-        b.y = b.baseY + Math.sin(t * 2) * 8;
-        if (b.timer <= 0) {
-          const k = enraged ? 14 : 10;
-          for (let i = 0; i < k; i++) bossShoot(b, (i / k) * Math.PI * 2 + b.count * 0.3, 80);
-          sfx('plasma');
-          b.timer = 0.7;
-          if (++b.count >= 2) nextBossMove(b);
-        }
-        break;
-      case 'dive':
-        // Swoop down at the player, then climb back up.
-        if (b.count === 0) {
-          b.diveX = p.x;
-          b.count = 1;
-        }
-        if (b.count === 1) {
-          toward(b.diveX, 88);
-          b.y = Math.min(b.y + 120 * dt, ARENA_FLOOR * TILE);
-          if (b.y >= ARENA_FLOOR * TILE) {
-            b.count = 2;
-            g.shake = 0.3;
-            sfx('explode');
-            for (const dir of [-1, 1]) g.shots.push({ x: b.x, y: b.y - 4, vx: dir * 110, vy: 0, life: 3, r: 3 });
-          }
-        } else {
-          b.y -= 72 * dt;
-          if (b.y <= b.baseY) nextBossMove(b);
+          next();
         }
         break;
     }
+    applyPhysics(b, dt, g.area);
     if (overlap(b, p)) hurtPlayer();
-  }
-
-  function nextBossMove(b) {
-    b.pattern = 'move';
-    b.targetX = (4 + g.rng.next() * (ARENA_COLS - 8)) * TILE;
-    b.timer = 2.5;
   }
 
   function killBoss() {
@@ -1190,6 +1283,7 @@ export function createGame(save) {
     const p = g.player;
     const hitbox = { x: p.x, y: p.y, w: p.w - 2, h: p.h - 2 };
     for (const s of g.shots) {
+      if (s.g) s.vy += s.g * dt;
       s.x += s.vx * dt;
       s.y += s.vy * dt;
       s.life -= dt;
@@ -1302,6 +1396,7 @@ export function createGame(save) {
       if (a.type === 'boss') updateBoss(a, dt);
       else if (isInnocent(a)) updateCivilian(a, dt);
       else if (a.type === 'snatcher') updateSnatcher(a, dt);
+      else if (a.type === 'cultist') updateCultist(a, dt);
       else if (!a.revealed) updateDisguised(a, dt);
       else if (a.type === 'grunt') updateGrunt(a, dt);
       else updateGunner(a, dt);
@@ -1338,7 +1433,7 @@ export function createGame(save) {
     if (g.boss && g.boss.dead) {
       g.bossDeadTimer -= dt;
       if (g.rng.chance(dt * 12)) {
-        burst(g.boss.x + (g.rng.next() - 0.5) * 40, g.boss.y - g.rng.next() * 60, g.rng.pick(['#f87800', '#f8d800', '#58d854']), 10, 120);
+        burst(g.boss.x + (g.rng.next() - 0.5) * 40, g.boss.y - g.rng.next() * 60, g.rng.pick(['#f87800', '#f8d800', '#a8743c', '#7c7870']), 10, 120);
         if (g.rng.chance(0.3)) sfx('explode');
       }
       if (g.bossDeadTimer <= 0) g.stageClear();
@@ -1411,7 +1506,7 @@ export function createGame(save) {
           tr.done = true;
           g.enterArea(tr.key);
           g.mode = 'transition';
-          g.banner = { title: AREA_TITLES[tr.key], sub: tr.key === 'boss' ? g.stage.bossName : '', t: 2 };
+          g.banner = { title: AREA_TITLES[tr.key], sub: tr.key === 'boss' ? 'STOP THE CEREMONY' : '', t: 2.5 };
         }
         if (tr.t >= 1.5) {
           g.fade = 0;

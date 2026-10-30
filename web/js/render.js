@@ -3,13 +3,13 @@
 // tiles can carry finer detail than the world grid. With the sunglasses on,
 // the world turns black and white and the lizards are drawn on top in color.
 
-import { TILE, ROWS, LANE_ROWS, ARENA_COLS, T, tileAt, isSolid, laneOf } from './stage.js';
+import { TILE, ROWS, LANE_ROWS, ARENA_COLS, ARENA_FLOOR, T, tileAt, isSolid, laneOf } from './stage.js';
 import {
-  personSprite, playerSprite, childSprite, bossSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
+  personSprite, playerSprite, childSprite, molochSprite, cultistSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
   cachedCanvas, dropCached, makeCanvas, shade, shadeHex, mix, rgb, css, DETAIL, COLORS as C,
 } from './sprites.js';
 import { hash } from './rng.js';
-import { WEAPON_INFO, VIEW_H } from './game.js';
+import { WEAPON_INFO, VIEW_H, PEDESTAL_H } from './game.js';
 
 export const RES = DETAIL;
 const H = VIEW_H;
@@ -169,7 +169,7 @@ function drawTouchHelp(ctx, g) {
 }
 
 function isLizard(a) {
-  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'snatcher' || a.type === 'boss';
+  return a.type === 'grunt' || a.type === 'gunner' || a.type === 'snatcher' || a.type === 'cultist' || a.type === 'boss';
 }
 
 // ---------- The sunglasses view ----------
@@ -566,47 +566,73 @@ function drawSewerLight(ctx, g, camX, lamps) {
 
 // ---------- Lair background ----------
 
+/** The temple of Moloch: firelit stone, banners and braziers. */
 function drawLairBack(ctx, g, camX) {
   const W = g.W;
-  bands(ctx, 0, 0, W, H, [[0, '#08040e'], [0.6, '#1c0c34'], [1, '#2c1048']], 40);
-  // The broadcast screen everyone has been watching.
-  const cx = q((ARENA_COLS / 2) * TILE - camX);
-  const top = 136;
-  bevelBox(ctx, cx - 82, top - 2, 164, 104, '#4c4c5c', 2);
-  ctx.fillStyle = '#060c06';
-  ctx.fillRect(cx - 76, top + 4, 152, 92);
-  for (let i = 0; i < 90; i++) {
-    ctx.fillStyle = Math.random() < 0.5 ? '#1c3c1c' : '#0c200c';
-    ctx.fillRect(q(cx - 76 + Math.random() * 150), q(top + 4 + Math.random() * 90), 1, P);
+  const floor = ARENA_FLOOR * TILE;
+  bands(ctx, 0, 0, W, H, [[0, '#0c0404'], [0.55, '#2c0c08'], [1, '#4c1810']], 40);
+  // Stone wall
+  const ox = camX * 0.9;
+  for (let y = floor - 128; y < floor; y += 12) {
+    const off = ((y / 12) % 2 ? 0 : 12) - (ox % 24);
+    for (let x = off - 24; x < W; x += 24) {
+      ctx.fillStyle = (hash(Math.floor((x + ox) / 24), y) % 3 === 0) ? '#3c1c14' : '#341810';
+      ctx.fillRect(q(x), y, 23, 11);
+      ctx.fillStyle = '#4c2a1c';
+      ctx.fillRect(q(x), y, 23, P);
+    }
   }
-  glow(ctx, cx, top + 34, 46, '#3cbc3c', 0.35);
-  // The eye
-  ctx.fillStyle = '#f0f0f8';
-  ctx.fillRect(cx - 26, top + 26, 52, 16);
-  ctx.fillRect(cx - 32, top + 30, 64, 8);
-  ctx.fillStyle = '#c0c0d0';
-  ctx.fillRect(cx - 26, top + 40, 52, 2);
-  ctx.fillStyle = '#20a040';
-  ctx.fillRect(cx - 9, top + 25, 18, 18);
-  ctx.fillStyle = '#58d854';
-  ctx.fillRect(cx - 9, top + 25, 18, 3);
-  ctx.fillStyle = '#000000';
-  ctx.fillRect(cx - 1.5, top + 26, 3, 16);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(cx - 7, top + 27, 2, 2);
-  if (Math.floor(g.time * 2) % 2) drawTextOutlined(ctx, 'OBEY', cx, top + 60, '#ffffff', 3, 'center');
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  for (let y = top + 4; y < top + 96; y += 1) ctx.fillRect(cx - 76, y, 152, P);
-  // Pillars
+  // A carved arch behind the idol, glowing from the furnace.
+  const cx = q((ARENA_COLS / 2) * TILE - camX);
+  ctx.fillStyle = '#1c0806';
+  for (let i = 0; i < 40; i++) {
+    const half = 34 * Math.sqrt(Math.max(0, 1 - ((40 - i) / 40) ** 2));
+    ctx.fillRect(q(cx - half), floor - 120 + i, q(half * 2), 1);
+  }
+  ctx.fillRect(cx - 34, floor - 80, 68, 80);
+  glow(ctx, cx, floor - 40, 60, '#ff5010', 0.25 + Math.sin(g.time * 3) * 0.05);
+  // Banners with the horned sigil
+  for (const bx of [cx - 70, cx + 58]) {
+    ctx.fillStyle = '#6c1018';
+    ctx.fillRect(bx, floor - 120, 12, 40);
+    ctx.fillStyle = '#4c0810';
+    ctx.fillRect(bx + 10, floor - 120, 2, 40);
+    for (let i = 0; i < 6; i++) ctx.fillRect(bx + i * 2, floor - 80, 1, 3 + (i % 2) * 2);
+    ctx.fillStyle = '#e8c040';
+    ctx.fillRect(bx + 3, floor - 108, 6, 6);
+    ctx.fillRect(bx + 2, floor - 112, 1.5, 4);
+    ctx.fillRect(bx + 8.5, floor - 112, 1.5, 4);
+  }
+  // Pillars with torches
   for (const x of [2, ARENA_COLS - 3]) {
     const px = q(x * TILE - camX);
-    ctx.fillStyle = '#2c1c54';
-    ctx.fillRect(px, 0, 12, H);
-    ctx.fillStyle = '#4c3888';
+    ctx.fillStyle = '#3c2418';
+    ctx.fillRect(px, 0, 14, H);
+    ctx.fillStyle = '#5c3a28';
     ctx.fillRect(px, 0, 2, H);
-    ctx.fillStyle = '#160c2c';
-    ctx.fillRect(px + 10, 0, 2, H);
-    for (let y = 20; y < H; y += 60) glow(ctx, px + 6, y, 6, '#9878f8', 0.5);
+    ctx.fillStyle = '#1c0c08';
+    ctx.fillRect(px + 12, 0, 2, H);
+    const ty = floor - 70;
+    ctx.fillStyle = '#2c2c34';
+    ctx.fillRect(px + 5, ty, 4, 8);
+    const f = Math.sin(g.time * 20 + x) * 1;
+    glow(ctx, px + 7, ty - 3, 20, '#ff7020', 0.55 + f * 0.1);
+    ctx.fillStyle = '#ff9030';
+    ctx.fillRect(px + 5, ty - 5 + f, 4, 5);
+    ctx.fillStyle = '#fff0a0';
+    ctx.fillRect(px + 6, ty - 3 + f, 2, 3);
+  }
+  // Braziers on the floor
+  for (const x of [cx - 52, cx + 46]) {
+    ctx.fillStyle = '#2c2420';
+    ctx.fillRect(x + 2, floor - 10, 2, 10);
+    bevelBox(ctx, x - 2, floor - 14, 10, 5, '#7c5c3c', 0.5);
+    const f = Math.sin(g.time * 17 + x) * 1.2;
+    glow(ctx, x + 3, floor - 20, 16, '#ff6010', 0.6);
+    ctx.fillStyle = '#ff8020';
+    ctx.fillRect(x, floor - 21 + f, 6, 7);
+    ctx.fillStyle = '#ffe080';
+    ctx.fillRect(x + 1.5, floor - 18 + f, 3, 4);
   }
 }
 
@@ -863,6 +889,7 @@ function drawChild(ctx, g, a, carried) {
 
 function drawActor(ctx, g, a, truthLayer) {
   if (a.type === 'boss') return drawBoss(ctx, g, a);
+  if (a.type === 'cultist') return drawCultist(ctx, g, a);
   if (a.type === 'child') {
     if (!a.carriedBy) drawChild(ctx, g, a, false);
     return;
@@ -926,37 +953,66 @@ function drawActor(ctx, g, a, truthLayer) {
   }
 }
 
+/** The idol of Moloch on its pedestal: stone while the ceremony goes on. */
 function drawBoss(ctx, g, b) {
-  const x = q(b.x - 18);
-  const y = q(b.y - 66);
-  // Hover pod
-  ctx.fillStyle = '#20202c';
-  ctx.fillRect(x - 7, y + 61, 50, 10);
-  bands(ctx, x - 6, y + 62, 48, 8, [[0, '#a8a8bc'], [0.4, '#6c6c80'], [1, '#2c2c3c']], 8);
-  for (let i = 0; i < 5; i++) {
-    ctx.fillStyle = Math.floor(g.time * 6 + i) % 5 === 0 ? '#ff5050' : '#3c1c1c';
-    ctx.fillRect(x + 2 + i * 8, y + 65, 3, 1.5);
+  const floor = ARENA_FLOOR * TILE;
+  const px = (ARENA_COLS / 2) * TILE;
+  // Pedestal, cracked once the idol has stepped off.
+  bevelBox(ctx, px - 28, floor - PEDESTAL_H, 56, PEDESTAL_H, '#5c4a3c', 1);
+  ctx.fillStyle = '#3c2c20';
+  for (let i = 0; i < 5; i++) ctx.fillRect(px - 22 + i * 10, floor - PEDESTAL_H + 3, 4, 4);
+  if (b.state === 'awake' || b.dead) {
+    ctx.fillStyle = '#1c140c';
+    ctx.fillRect(px - 6, floor - PEDESTAL_H, 1, 4);
+    ctx.fillRect(px - 5, floor - PEDESTAL_H + 4, 1, 3);
+    ctx.fillRect(px + 9, floor - PEDESTAL_H, 1, 5);
   }
-  const flame = 3 + Math.sin(g.time * 30) * 1.5;
-  for (const tx of [x - 2, x + 32]) {
-    ctx.fillStyle = '#4c4c5c';
-    ctx.fillRect(tx, y + 70, 6, 2);
-    glow(ctx, tx + 3, y + 73 + flame / 2, 6 + flame, '#80c0ff', 0.9);
-    ctx.fillStyle = '#e0f0ff';
-    ctx.fillRect(tx + 2, y + 72, 2, flame);
-  }
-  // Antenna
-  ctx.fillStyle = '#c8c8d8';
-  ctx.fillRect(x + 40, y + 30, 1.5, 32);
-  ctx.fillStyle = '#6c6c7c';
-  ctx.fillRect(x + 41.5, y + 30, P, 32);
-  if (Math.floor(g.time * 3) % 2) glow(ctx, x + 40.75, y + 29, 5, '#ff3030');
-  ctx.fillStyle = '#ff5050';
-  ctx.fillRect(x + 39.5, y + 27.5, 2.5, 2.5);
   if (b.dead && Math.floor(g.time * 20) % 2) return;
-  let spr = bossSprite();
+  const flicker = b.state === 'waking' && Math.floor(g.time * (6 + (2.2 - b.timer) * 8)) % 2 === 0;
+  const awake = b.state === 'awake' || flicker;
+  let spr = molochSprite(awake, b.face > 0);
   if (b.flash > 0) spr = flashSprite(spr);
+  const x = q(b.x - 24);
+  const y = q(b.y - 66);
   drawSprite(ctx, spr, x, y);
+  if (awake) {
+    // Burning eyes and a roaring furnace.
+    const pulse = 0.7 + Math.sin(g.time * 12) * 0.3;
+    glow(ctx, x + 16.5, y + 19.5, 6, '#ff3018', pulse);
+    glow(ctx, x + 31.5, y + 19.5, 6, '#ff3018', pulse);
+    glow(ctx, b.x, y + 46.5, 18, '#ff8020', 0.6 + Math.sin(g.time * 9) * 0.25);
+    for (let i = 0; i < 3; i++) {
+      const fx = b.x - 8 + ((g.time * 37 + i * 13) % 16);
+      const fy = y + 50 - ((g.time * 30 + i * 9) % 12);
+      ctx.fillStyle = i % 2 ? '#ffe060' : '#ff6020';
+      ctx.fillRect(q(fx), q(fy), 1.5, 1.5);
+    }
+  } else if (b.state === 'waking') {
+    glow(ctx, b.x, y + 30, 30, '#ff3018', 0.25);
+  }
+}
+
+function drawCultist(ctx, g, a) {
+  const chant = a.chanting;
+  const pose = !a.onGround || !chant && Math.abs(a.vx) > 1 ? ['walk1', 'stand', 'walk2', 'stand'][Math.floor(a.anim * 10) % 4] : 'stand';
+  let spr = cultistSprite(a.role === 'priest', pose, a.face < 0);
+  if (a.flash > 0) spr = flashSprite(spr);
+  const bob = chant ? q(Math.sin(a.anim * 4) * 1) : 0;
+  const x = q(a.x - 6);
+  const y = q(a.y - 22) + bob;
+  drawSprite(ctx, spr, x, y);
+  if (chant) {
+    // Arms raised to the idol.
+    const lift = q(Math.sin(a.anim * 4) * 1.5);
+    for (const hx of [x - 1, x + 11]) {
+      ctx.fillStyle = '#1c5c2c';
+      ctx.fillRect(hx, y + 1 + lift, 2, 3);
+      ctx.fillStyle = '#5cd870';
+      ctx.fillRect(hx, y + 1 + lift, 2, 1);
+    }
+  } else if (a.role === 'priest') {
+    glow(ctx, a.x + a.face * 7, a.y - 15, 4, '#ff8020', 0.7);
+  }
 }
 
 function drawPlayer(ctx, g) {
@@ -1074,6 +1130,17 @@ function drawShots(ctx, g) {
     const x = q(s.x);
     const y = q(s.y);
     const r = s.r;
+    if (s.fire) {
+      glow(ctx, x, y, r * 3, '#ff7020', 0.7 + pulse * 0.3);
+      ctx.fillStyle = '#e84010';
+      ctx.fillRect(x - r, y - r + 1, r * 2, r * 2 - 2);
+      ctx.fillRect(x - r + 1, y - r, r * 2 - 2, r * 2);
+      ctx.fillStyle = '#ffc040';
+      ctx.fillRect(x - r + 1, y - r + 1, r * 2 - 2, r * 2 - 2);
+      ctx.fillStyle = '#fffbe0';
+      ctx.fillRect(x - 1, y - 1, 1.5, 1.5);
+      continue;
+    }
     glow(ctx, x, y, r * 2.6, '#ff40e0', 0.65 + pulse * 0.3);
     ctx.fillStyle = '#d020c0';
     ctx.fillRect(x - r, y - r + 1, r * 2, r * 2 - 2);
@@ -1141,8 +1208,11 @@ function drawHud(ctx, g) {
   g.pauseRect = { x: W - 40, y: 0, w: 40, h: 32 };
 
   const b = g.boss;
-  if (b && !b.dead) {
-    drawTextOutlined(ctx, b.name, W / 2, 13, '#78f060', 1, 'center');
+  if (b && !b.dead && b.state !== 'awake') {
+    const left = g.cultistsLeft();
+    if (left > 0) drawTextOutlined(ctx, `ATTENDEES LEFT: ${left}`, W / 2, 13, '#ff8060', 1, 'center');
+  } else if (b && !b.dead) {
+    drawTextOutlined(ctx, b.name, W / 2, 13, '#ffb040', 1, 'center');
     panel(ctx, W / 2 - 52, 20, 104, 6, 0.8);
     meter(ctx, W / 2 - 50, 21, 100, 4, Math.max(0, b.hp) / b.maxHp, '#e83030');
   }

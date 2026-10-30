@@ -29,8 +29,14 @@ it. The screen shows the one you're in.
    shoot it there. Saved kids are beamed home safe (+500 and a bigger stage
    bonus). If a snatcher gets away, the child is gone (-1000). The stage-clear
    screen counts children saved and taken.
-5. **The lair.** A door at the end of either lane leads to a boss on a hover
-   pod, who gets new attack patterns as you go deeper.
+5. **The temple of Moloch.** A door at the end of either lane leads to a
+   sacrifice ceremony: robed lizard cultists chanting before a stone idol of
+   Moloch. Start shooting and they fight back (zealots rush you, priests lob
+   fireballs). The idol can't be hurt while any of them live. Kill them all
+   and Moloch comes to life: it stomps after you, spits fireballs from its
+   furnace belly, breathes fire, leaps to send shockwaves along the floor and
+   calls in more cultists, getting faster when badly hurt. Destroy it to clear
+   the stage.
 
 Then the next stage starts, a bit harder. The lizards take back your shades
 and the portal device at the start of every stage, so you have to find them again.

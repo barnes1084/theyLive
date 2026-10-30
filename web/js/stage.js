@@ -5,7 +5,8 @@
 //            and the weapons and hearts are. A portal device, carried by one
 //            disguised lizard, lets the player warp between the lanes.
 //            Children play on the street; snatchers portal up to take them.
-//   boss   - a locked arena at the end of the street
+//   boss   - a temple at the end of the street, where cultists hold a
+//            ceremony before an idol of Moloch that comes to life
 // Everything comes from (stage number, run seed), so the same pair always
 // gives the same stage. The tests check every stage can be finished.
 
@@ -28,7 +29,7 @@ export const WEAPONS = ['M', 'N', 'T', 'S'];
 
 const BILLBOARD_ADS = ['BUY NOW', 'NEW CAR', 'COLA', 'VACATION', 'TV 24/7', 'SALE', 'BANK ON US', 'DIET', 'MOVIES'];
 const BILLBOARD_TRUTH = ['OBEY', 'CONSUME', 'SLEEP', 'CONFORM', 'NO THOUGHT', 'SUBMIT', 'WATCH TV', 'STAY ASLEEP', 'BUY', 'DO NOT QUESTION', 'MARRY AND REPRODUCE'];
-const BOSS_NAMES = ['THE OVERSEER', 'THE ANCHORMAN', 'THE LANDLORD', 'THE BROADCASTER', 'THE CHAIRMAN', 'THE SPOKESMAN'];
+const BOSS_NAMES = ['MOLOCH', 'MOLOCH THE DEVOURER', 'MOLOCH OF THE FURNACE', 'THE BRONZE GOD', 'MOLOCH, LORD OF FIRE', 'THE HORNED IDOL'];
 
 /** Bigger numbers are harder; levels off after stage 10. */
 export function difficulty(stage) {
@@ -276,6 +277,7 @@ function generateBoss() {
     set(area, 0, r, T.SOLID);
     set(area, ARENA_COLS - 1, r, T.SOLID);
   }
-  area.startX = 4 * TILE;
+  // Enter at the far left, away from the ceremony.
+  area.startX = 1.75 * TILE;
   return area;
 }
