@@ -1,3 +1,9 @@
+@font-face {
+  font-family: 'Russo One';
+  src: url(fonts/russo-one.woff2) format('woff2');
+  font-display: swap;
+}
+
 html,
 body {
   margin: 0;
@@ -20,8 +26,7 @@ body {
 
 #screen {
   display: block;
-  image-rendering: pixelated;
-  image-rendering: crisp-edges;
+  image-rendering: auto;
 }
 
 /* Full-screen layer that receives every tap; the controls show on touch

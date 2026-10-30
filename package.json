@@ -2,7 +2,7 @@
   "name": "theylive",
   "version": "1.0.0",
   "private": true,
-  "description": "They Live - an 8-bit side-scrolling shooter for Android",
+  "description": "They Live - a side-scrolling shooter for Android",
   "type": "module",
   "scripts": {
     "start": "npx http-server web -p 8080 -c-1",
