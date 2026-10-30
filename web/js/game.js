@@ -3,6 +3,7 @@
 
 import { TILE, ROWS, LANE_ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA_FLOOR, WEAPONS, tileAt, isSolid, laneOf, generateStage } from './stage.js';
 import { sfx, playMusic } from './audio.js';
+import { heroMuzzle } from './sprites.js';
 import { makeRng } from './rng.js';
 
 export const VIEW_H = ROWS * TILE;
@@ -144,7 +145,6 @@ export function createGame(save) {
     zoom: 1,
     viewH: VIEW_H,
     screenW: 320,
-    helpTimer: 0,
     player: null,
     actors: [],
     bullets: [],
@@ -199,7 +199,6 @@ export function createGame(save) {
     g.armor = false;
     g.weapon = 'G';
     g.glasses.contacts = false;
-    g.helpTimer = 10;
     g.startStage(1);
   };
 
@@ -460,13 +459,11 @@ export function createGame(save) {
   function updateGlasses(dt) {
     const gl = g.glasses;
     if (!gl.have) return;
-    // Touch swipes say on or off; the keyboard toggles.
-    const want = input.pressed.glassesOn ? 'on' : input.pressed.glassesOff ? 'off' : input.pressed.glasses ? (gl.on ? 'off' : 'on') : null;
-    if (want === 'off' && gl.on) {
-      gl.on = false;
-      sfx('glassesOff');
-    } else if (want === 'on' && !gl.on) {
-      if (!gl.locked) {
+    if (input.pressed.glasses) {
+      if (gl.on) {
+        gl.on = false;
+        sfx('glassesOff');
+      } else if (!gl.locked) {
         gl.on = true;
         sfx('glassesOn');
       } else {
@@ -499,8 +496,7 @@ export function createGame(save) {
     const dirX = (input.held.right ? 1 : 0) - (input.held.left ? 1 : 0);
     const dirY = (input.held.down ? 1 : 0) - (input.held.up ? 1 : 0);
 
-    // Holding lock (or holding still on the left of a touch screen) plants
-    // your feet: direction input only aims.
+    // Holding lock plants your feet: the stick only aims.
     p.planted = !!input.held.lock && p.onGround;
     p.crouch = p.onGround && dirY > 0 && dirX === 0;
     p.h = p.crouch ? 13 : 21;
@@ -510,8 +506,6 @@ export function createGame(save) {
     // Tackle: a shoulder charge that plows through lizards.
     p.tackleCd -= dt;
     if (input.pressed.tackle && p.tackleCd <= 0 && p.tackle <= 0) {
-      // A touch swipe says which way.
-      if (input.tackleDir) p.face = input.tackleDir;
       p.tackle = TACKLE_TIME;
       p.tackleCd = TACKLE_COOLDOWN;
       p.tackleHit = new Set();
@@ -527,12 +521,6 @@ export function createGame(save) {
       if (g.rng.chance(0.6)) burst(p.x - p.face * 6, p.y - 2, '#bcbcbc', 1, 30);
     }
 
-    if (input.tackleDir && !input.pressed.tackle) input.tackleDir = 0;
-    // Swipe down drops through scaffolding.
-    if (input.pressed.drop && p.onGround && p.groundTile === T.ONEWAY) {
-      p.drop = 0.25;
-      p.y += 2;
-    }
     p.coyote = p.onGround ? 0.08 : p.coyote - dt;
     p.jumpBuf = input.pressed.jump ? 0.12 : p.jumpBuf - dt;
     if (p.jumpBuf > 0 && p.coyote > 0) {
@@ -624,10 +612,9 @@ export function createGame(save) {
     }
   }
 
+  /** Shots leave from the rifle's muzzle in the hero's current pose. */
   function gunOrigin() {
-    const p = g.player;
-    const shoulder = p.crouch ? p.y - 8 : p.y - 13;
-    return { x: p.x + p.aim.x * 9, y: shoulder + p.aim.y * 9 };
+    return heroMuzzle(g.player);
   }
 
   function fire() {
@@ -1420,7 +1407,6 @@ export function createGame(save) {
     updatePlayer(dt);
     if (g.mode !== 'play' && g.mode !== 'dying') return;
     g.updateCamera(dt);
-    if (g.helpTimer > 0) g.helpTimer -= dt;
     if (g.areaKey !== 'boss') {
       spawnFromSpawnList();
       spawnWave(dt);

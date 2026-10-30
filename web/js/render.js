@@ -5,7 +5,7 @@
 
 import { TILE, ROWS, LANE_ROWS, ARENA_COLS, ARENA_FLOOR, T, tileAt, isSolid, laneOf } from './stage.js';
 import {
-  personSprite, playerSprite, childSprite, molochSprite, cultistSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
+  personSprite, playerSprite, heroPose, heroMuzzle, childSprite, molochSprite, cultistSprite, tileSprite, icon, drawSprite, flashSprite, drawText, drawTextOutlined,
   cachedCanvas, dropCached, makeCanvas, shade, shadeHex, mix, rgb, css, DETAIL, COLORS as C,
 } from './sprites.js';
 import { hash } from './rng.js';
@@ -21,7 +21,7 @@ const q = (v) => Math.round(v * RES) / RES;
 
 let frameCount = 0;
 
-export function render(ctx, g, usingTouch, input) {
+export function render(ctx, g, usingTouch) {
   const SW = g.screenW;
   const screen = () => ctx.setTransform(RES, 0, 0, RES, 0, 0);
   screen();
@@ -79,9 +79,7 @@ export function render(ctx, g, usingTouch, input) {
 
   screen();
   drawLaneAlerts(ctx, g, camX, camY);
-  if (usingTouch && input) drawTouchFeedback(ctx, g, input);
   drawHud(ctx, g);
-  if (g.helpTimer > 0 && usingTouch && g.mode === 'play') drawTouchHelp(ctx, g);
   if (g.banner) drawBanner(ctx, g);
   if (g.fade > 0) {
     ctx.fillStyle = `rgba(0,0,0,${Math.min(1, g.fade)})`;
@@ -108,64 +106,6 @@ function drawLaneAlerts(ctx, g, camX, camY) {
     for (let i = 0; i < 5; i++) ctx.fillRect(x - i, up ? y - 4 + i : y + 4 - i, i * 2 + 1, 1);
     drawTextOutlined(ctx, 'HELP!', x, up ? y + 4 : y - 10, '#ff8080', 1, 'center');
   }
-}
-
-/** Shows the touch state: walking direction, and the hold-to-aim point. */
-function drawTouchFeedback(ctx, g, input) {
-  if (g.mode !== 'play') return;
-  if (input.walkDir && !input.holding) {
-    const x = 18;
-    const y = H - 18;
-    ctx.globalAlpha = 0.55 + Math.sin(g.time * 6) * 0.15;
-    for (let k = 0; k < 2; k++) {
-      const cx = x + k * 6 * input.walkDir;
-      ctx.fillStyle = '#ffffff';
-      for (let i = 0; i < 4; i++) ctx.fillRect(cx + (input.walkDir > 0 ? i : -i), y - 4 + i, 1.5, 8 - i * 2);
-    }
-    ctx.globalAlpha = 1;
-  }
-  const h = input.holding;
-  if (h) {
-    const r = ctx.canvas.getBoundingClientRect();
-    const toX = (cx) => ((cx - r.left) / r.width) * g.screenW;
-    const toY = (cy) => ((cy - r.top) / r.height) * H;
-    const x = toX(h.x);
-    const y = toY(h.y);
-    ctx.fillStyle = 'rgba(248,216,0,0.7)';
-    for (let i = 0; i < 24; i++) {
-      const a = (i / 24) * Math.PI * 2;
-      ctx.fillRect(q(x + Math.cos(a) * 12), q(y + Math.sin(a) * 12), 1, 1);
-    }
-    const ax = toX(h.aimX) - x;
-    const ay = toY(h.aimY) - y;
-    const len = Math.hypot(ax, ay);
-    if (len > 3) {
-      const k = Math.min(len, 12) / len;
-      glow(ctx, x + ax * k, y + ay * k, 4, '#f8d800', 0.8);
-    }
-  }
-}
-
-/** The gesture guide shown at the start of a run on touch screens. */
-function drawTouchHelp(ctx, g) {
-  const a = Math.min(1, g.helpTimer / 1.5);
-  const w = g.screenW;
-  ctx.globalAlpha = a;
-  const rows = [
-    ['LEFT SIDE', 'RIGHT SIDE'],
-    ['SWIPE > OR < : WALK', 'HOLD: FIRE'],
-    ['SWIPE UP: JUMP', 'SWIPE > OR < : TACKLE'],
-    ['TAP: STOP', 'SWIPE UP: SHADES ON'],
-    ['HOLD + DRAG: AIM', 'SWIPE DOWN: SHADES OFF'],
-  ];
-  panel(ctx, 6, 40, w / 2 - 12, 58, 0.55);
-  panel(ctx, w / 2 + 6, 40, w / 2 - 12, 58, 0.55);
-  rows.forEach(([l, r], i) => {
-    const color = i === 0 ? '#f8d800' : '#ffffff';
-    drawTextOutlined(ctx, l, w / 4, 45 + i * 10, color, 1, 'center');
-    drawTextOutlined(ctx, r, (w * 3) / 4, 45 + i * 10, color, 1, 'center');
-  });
-  ctx.globalAlpha = 1;
 }
 
 function isLizard(a) {
@@ -1021,7 +961,6 @@ function drawPlayer(ctx, g) {
   if (p.inv > 0 && g.mode === 'play' && Math.floor(g.time * 20) % 2) return;
   const flip = p.face < 0;
   const tackling = p.tackle > 0;
-  const pose = p.crouch || tackling ? 'crouch' : poseOf({ onGround: p.onGround, vx: p.vx, anim: p.anim });
   if (tackling) {
     // Speed lines behind a shoulder charge.
     for (let i = 0; i < 5; i++) {
@@ -1029,54 +968,37 @@ function drawPlayer(ctx, g) {
       ctx.fillRect(q(p.x - p.face * (10 + i * 5) - 3), q(p.y - 14 + ((i * 5) % 12)), 6 - i, P * 2);
     }
   }
-  const spr = playerSprite(pose, g.glasses.on, flip);
-  const x = q(p.x - 6);
-  const y = q(p.y - (spr.h - 2 * spr.pad));
-  drawSprite(ctx, spr, x, y);
-  if (g.armor) {
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(x + (flip ? 5 : 4), y + 0.5, 3, P);
+  // Contra-style poses: both hands on the rifle, a somersault in the air.
+  const pose = heroPose(p);
+  const legs = Math.abs(p.vx) > 1 && !tackling ? ['walk1', 'stand', 'walk2', 'stand'][Math.floor(p.anim * 10) % 4] : 'stand';
+  if (pose === 'ball') {
+    const frame = Math.floor(g.time * 14) % 4;
+    drawSprite(ctx, playerSprite('ball', 'stand', false, flip, flip ? 3 - frame : frame), q(p.x - 7), q(p.y - 18));
+  } else {
+    drawSprite(ctx, playerSprite(pose, legs, g.glasses.on, flip), q(p.x - 10), q(p.y - 28));
+    if (g.armor) {
+      // A white stripe on the hard hat.
+      const top = pose === 'crouch' ? p.y - 16 : p.y - 22;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(q(p.x - 2), q(top + 0.5), 3, P);
+    }
   }
-  if (tackling) return;
-  // Arm and shotgun along the aim direction.
-  const sx = p.x;
-  const sy = p.crouch ? p.y - 8 : p.y - 13;
+  const m = heroMuzzle(p);
   const { x: ax, y: ay } = p.aim;
-  for (let i = 0; i <= 11; i += 0.5) {
-    const px = q(sx + ax * i);
-    const py = q(sy + ay * i);
-    if (i < 4) {
-      // A big bare arm: thick at the bicep, with a highlight on top.
-      const t = i < 2 ? 2.5 : 2;
-      ctx.fillStyle = '#b86c3c';
-      ctx.fillRect(px - 0.5, py - 0.5, t, t);
-      ctx.fillStyle = '#f0a868';
-      ctx.fillRect(px - 0.5, py - 0.5, t, t - 0.5);
-      ctx.fillStyle = '#ffd0a0';
-      ctx.fillRect(px - 0.5, py - 0.5, t - 0.5, P);
-      continue;
-    }
-    ctx.fillStyle = i < 5.5 ? '#8c5420' : '#30303c';
-    ctx.fillRect(px, py, 1.5, 1.5);
-    if (i >= 5.5) {
-      ctx.fillStyle = '#8c8ca4';
-      ctx.fillRect(px, py, 1.5, P);
-    }
-  }
   if (p.planted) {
     // Feet planted: a dotted guide shows where the shots will go.
     for (let i = 0; i < 6; i++) {
-      const d = 16 + i * 7 + ((g.time * 20) % 7);
+      const d = 6 + i * 7 + ((g.time * 20) % 7);
       ctx.fillStyle = `rgba(248,216,0,${0.75 - i * 0.11})`;
-      ctx.fillRect(q(sx + ax * d), q(sy + ay * d + 0.5), 1, 1);
+      ctx.fillRect(q(m.x + ax * d), q(m.y + ay * d), 1, 1);
     }
     ctx.fillStyle = 'rgba(248,216,0,0.8)';
     ctx.fillRect(q(p.x - 6), q(p.y), 3, P * 2);
     ctx.fillRect(q(p.x + 3), q(p.y), 3, P * 2);
   }
-  if (p.firing > 0) {
-    const fx = sx + ax * 13;
-    const fy = sy + ay * 13 + 0.75;
+  if (p.firing > 0 && !tackling) {
+    const fx = m.x + ax * 2;
+    const fy = m.y + ay * 2;
     glow(ctx, fx, fy, 9, '#ffc040');
     ctx.fillStyle = '#fffbe0';
     ctx.fillRect(q(fx - 1.5), q(fy - 0.5), 3, 1);
