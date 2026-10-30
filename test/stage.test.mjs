@@ -7,7 +7,8 @@ import { generateStage, tileAt, isSolid, laneOf, T, ROWS, LANE_ROWS, TILE, GRAVI
 const jumpRows = (JUMP_V * JUMP_V) / (2 * GRAVITY) / TILE;
 const jumpCols = ((2 * JUMP_V) / GRAVITY) * RUN_SPEED / TILE;
 assert.ok(jumpRows >= 3.2, `jump height ${jumpRows.toFixed(2)} rows is too low for 3-row steps`);
-assert.ok(jumpCols >= 3.8, `jump length ${jumpCols.toFixed(2)} cols is too short for 3-col gaps`);
+// A running jump must clear a 3-tile gap with half a tile to spare.
+assert.ok(jumpCols * TILE >= 3 * TILE + 8, `jump length ${jumpCols.toFixed(2)} cols is too short for 3-col gaps`);
 
 /** Cells (c, r) the player can stand on: a floor tile with two free rows above. */
 function standable(area, c, r) {
