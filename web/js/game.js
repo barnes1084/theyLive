@@ -5,28 +5,24 @@ import { TILE, ROWS, LANE_ROWS, T, GRAVITY, JUMP_V, RUN_SPEED, ARENA_COLS, ARENA
 import { sfx, playMusic } from './audio.js';
 import { heroMuzzle } from './hero.js';
 import { makeRng } from './rng.js';
+import { tune } from './tuning.js';
 
 export const VIEW_H = ROWS * TILE;
 const STEP = 1 / 60;
 const FLOOR_Y = ARENA_FLOOR * TILE;
 const ALTAR_X = (ARENA_COLS * TILE) / 2;
 export const PEDESTAL_H = 10;
-const MAX_HEARTS = 4;
 
 export const WEAPON_INFO = {
-  G: { name: 'SPREAD GUN', delay: 0.36 },
-  M: { name: 'MACHINE GUN', delay: 0.075 },
-  N: { name: 'NAIL GUN', delay: 0.1 },
-  T: { name: 'TORCH', delay: 0.05 },
-  S: { name: 'SLUGS', delay: 0.42 },
+  G: { name: 'SPREAD GUN', delay: 'spreadDelay' },
+  M: { name: 'MACHINE GUN', delay: 'mgDelay' },
+  N: { name: 'NAIL GUN', delay: 'nailDelay' },
+  T: { name: 'TORCH', delay: 'torchDelay' },
+  S: { name: 'SLUGS', delay: 'slugDelay' },
 };
 
 const AREA_TITLES = { street: 'THE STREETS', boss: 'THE TEMPLE' };
 const MUSIC = { street: 'city', boss: 'boss' };
-const PORTAL_COOLDOWN = 1.2;
-const TACKLE_TIME = 0.28;
-const TACKLE_SPEED = 185;
-const TACKLE_COOLDOWN = 0.7;
 
 // ---------- Saved progress ----------
 
@@ -103,8 +99,8 @@ function moveY(b, dy, area) {
   }
 }
 
-function applyPhysics(b, dt, area) {
-  b.vy = Math.min(b.vy + GRAVITY * dt, 340);
+function applyPhysics(b, dt, area, gravity = GRAVITY) {
+  b.vy = Math.min(b.vy + gravity * dt, 340);
   const hitWall = moveX(b, b.vx * dt, area);
   moveY(b, b.vy * dt, area);
   if (b.drop > 0) b.drop -= dt;
@@ -156,7 +152,7 @@ export function createGame(save) {
     fade: 0,
     shake: 0,
     score: 0,
-    hearts: MAX_HEARTS,
+    hearts: tune.maxHearts,
     armor: false,
     weapon: 'G',
     glasses: { have: false, on: false, meter: 1, locked: false, contacts: false, taken: false },
@@ -179,35 +175,29 @@ export function createGame(save) {
     g.menu = {
       items: [
         { label: 'START', action: () => g.newRun() },
-        { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
-        { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
+        { label: 'SETTINGS', action: () => g.openSettings?.() },
       ],
       sel: 0,
     };
   };
 
-  g.toggleSetting = function (key) {
-    g.save[key] = !g.save[key];
-    writeSave(g.save);
-    g.onSettingsChanged?.();
-  };
-
   g.newRun = function () {
     g.runSeed = (Math.random() * 2 ** 32) >>> 0;
     g.score = 0;
-    g.hearts = MAX_HEARTS;
+    g.hearts = tune.maxHearts;
     g.armor = false;
-    g.weapon = 'G';
+    g.weapon = tune.startWeapon;
     g.glasses.contacts = false;
-    g.startStage(1);
+    g.startStage(tune.startStage);
   };
 
   g.startStage = function (n) {
     g.stageNum = n;
     g.stage = generateStage(n, g.runSeed);
     // The lizards took your shades and the portal device. Find them again.
-    Object.assign(g.glasses, { have: false, on: false, meter: 1, locked: false, taken: false });
-    g.portal = { have: false, cd: 0 };
+    Object.assign(g.glasses, { have: tune.startShades, on: false, meter: 1, locked: false, taken: tune.startShades });
+    g.portal = { have: tune.startPortal, cd: 0 };
+    if (tune.startHardHat) g.armor = true;
     g.carrierPending = false;
     g.stageStats = { lizards: 0, innocents: 0, saved: 0, lost: 0, score: g.score };
     g.snatchTimer = 9;
@@ -318,8 +308,9 @@ export function createGame(save) {
           label: `RETRY STAGE ${g.stageNum}`,
           action: () => {
             g.score = g.stageStats.score;
-            g.hearts = MAX_HEARTS;
+            g.hearts = tune.maxHearts;
             g.armor = false;
+            if (!tune.keepWeapon) g.weapon = tune.startWeapon;
             g.startStage(g.stageNum);
           },
         },
@@ -336,8 +327,7 @@ export function createGame(save) {
     g.menu = {
       items: [
         { label: 'RESUME', action: () => g.resume() },
-        { label: () => `SOUND: ${g.save.sound ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('sound') },
-        { label: () => `MUSIC: ${g.save.music ? 'ON' : 'OFF'}`, action: () => g.toggleSetting('music') },
+        { label: 'SETTINGS', action: () => g.openSettings?.() },
         { label: 'QUIT RUN', action: () => g.showTitle() },
       ],
       sel: 0,
@@ -367,21 +357,22 @@ export function createGame(save) {
     g.score = Math.max(0, g.score + n);
   };
 
-  function hurtPlayer(force = false) {
+  /** Takes `amount` hearts; `force` ignores invincibility and the hard hat. */
+  function hurtPlayer(force = false, amount = tune.hitDamage) {
     const p = g.player;
     if (!force && (p.inv > 0 || p.tackle > 0)) return;
-    if (g.mode !== 'play') return;
+    if (g.mode !== 'play' || amount <= 0) return;
     g.shake = 0.25;
     if (g.armor && !force) {
       g.armor = false;
-      p.inv = 1.2;
+      p.inv = Math.max(1.2, tune.invTime);
       sfx('hit');
       addText(p.x, p.y - 28, 'HARD HAT!', '#f8d800');
       burst(p.x, p.y - 20, '#f8d800', 6);
       return;
     }
-    g.hearts--;
-    p.inv = 1.6;
+    g.hearts = Math.max(0, g.hearts - amount);
+    p.inv = tune.invTime;
     p.vy = -126;
     sfx('hurt');
     burst(p.x, p.y - 12, '#d82800', 10);
@@ -449,7 +440,7 @@ export function createGame(save) {
     p.inv = Math.max(p.inv, 0.6);
     g.portalFx.push({ x: p.x, y: p.y - 11, t: 0 });
     burst(p.x, p.y - 11, '#9878f8', 12, 60);
-    pt.cd = PORTAL_COOLDOWN;
+    pt.cd = tune.portalCooldown;
     sfx('portal');
     playMusic(to ? 'tunnel' : 'city');
   }
@@ -471,7 +462,7 @@ export function createGame(save) {
       }
     }
     if (gl.on) {
-      gl.meter -= dt / (gl.contacts ? 12 : 6);
+      gl.meter -= dt / (gl.contacts ? tune.contactsTime : tune.shadesTime);
       if (gl.meter <= 0) {
         gl.meter = 0;
         gl.on = false;
@@ -481,7 +472,7 @@ export function createGame(save) {
         addText(g.player.x, g.player.y - 30, 'HEADACHE!', '#fc7460', 1.5);
       }
     } else {
-      gl.meter = Math.min(1, gl.meter + dt / 4);
+      gl.meter = Math.min(1, gl.meter + dt / tune.shadesRecharge);
       if (gl.locked && gl.meter >= 0.5) gl.locked = false;
     }
   }
@@ -500,14 +491,14 @@ export function createGame(save) {
     p.planted = !!input.held.lock && p.onGround;
     p.crouch = p.onGround && dirY > 0 && dirX === 0;
     p.h = p.crouch ? 13 : 21;
-    p.vx = p.crouch || p.planted ? 0 : dirX * RUN_SPEED;
+    p.vx = p.crouch || p.planted ? 0 : dirX * RUN_SPEED * tune.runSpeed;
     if (dirX) p.face = dirX;
 
     // Tackle: a shoulder charge that plows through lizards.
     p.tackleCd -= dt;
     if (input.pressed.tackle && p.tackleCd <= 0 && p.tackle <= 0) {
-      p.tackle = TACKLE_TIME;
-      p.tackleCd = TACKLE_COOLDOWN;
+      p.tackle = tune.tackleTime;
+      p.tackleCd = tune.tackleCooldown;
       p.tackleHit = new Set();
       p.crouch = false;
       p.h = 21;
@@ -515,7 +506,7 @@ export function createGame(save) {
     }
     if (p.tackle > 0) {
       p.tackle -= dt;
-      p.vx = p.face * TACKLE_SPEED;
+      p.vx = p.face * tune.tackleSpeed;
       p.planted = false;
       if (p.vy > 0) p.vy = 0; // a midair tackle carries straight across
       if (g.rng.chance(0.6)) burst(p.x - p.face * 6, p.y - 2, '#bcbcbc', 1, 30);
@@ -530,15 +521,15 @@ export function createGame(save) {
         p.drop = 0.25;
         p.y += 2;
       } else {
-        p.vy = -JUMP_V;
+        p.vy = -JUMP_V * tune.jumpPower;
         sfx('jump');
       }
     }
     // Let go of jump early for a short hop.
-    if (!input.held.jump && p.vy < 0) p.vy += GRAVITY * dt * 1.2;
+    if (!input.held.jump && p.vy < 0) p.vy += GRAVITY * tune.gravity * dt * 1.2;
 
     const wasGround = p.onGround;
-    applyPhysics(p, dt, area);
+    applyPhysics(p, dt, area, GRAVITY * tune.gravity);
     if (p.onGround && !wasGround) sfx('land');
 
     if (p.tackle > 0) tackleHits();
@@ -579,7 +570,7 @@ export function createGame(save) {
     if (p.y > VIEW_H + 24 || sunk) {
       if (sunk) burst(p.x, p.y - 4, lane ? '#58d854' : '#bcbcbc', 12);
       p.inv = 0;
-      hurtPlayer(true);
+      hurtPlayer(true, tune.pitDamage);
       if (g.mode === 'play') respawnPlayer(lane);
     }
   }
@@ -597,7 +588,7 @@ export function createGame(save) {
       g.shake = Math.max(g.shake, 0.15);
       burst(a.x, a.y - 12, '#fcfcfc', 8, 90);
       if (a.type === 'boss') {
-        damageActor(a, 4);
+        damageActor(a, tune.tackleDamage + 1);
         p.tackle = 0;
         p.vx = -p.face * 120;
         p.vy = -142;
@@ -607,7 +598,7 @@ export function createGame(save) {
       if (a.child) freeChild(a);
       a.x += p.face * 12;
       a.vy = -126;
-      damageActor(a, 3);
+      damageActor(a, tune.tackleDamage);
       if (!a.dead) a.flash = 0.2;
     }
   }
@@ -623,28 +614,31 @@ export function createGame(save) {
     const { x: ax, y: ay } = p.aim;
     const shoot = (angle, speed, life, dmg, kind, pierce = 0) => {
       const a = Math.atan2(ay, ax) + angle;
+      speed *= tune.bulletSpeed;
+      life *= tune.bulletRange / tune.bulletSpeed;
       g.bullets.push({ x: o.x, y: o.y, vx: Math.cos(a) * speed, vy: Math.sin(a) * speed, life, dmg, kind, pierce, hit: new Set() });
     };
-    p.fireCd = WEAPON_INFO[g.weapon].delay;
+    p.fireCd = tune[WEAPON_INFO[g.weapon].delay];
     p.firing = 0.08;
     if (g.weapon === 'G') {
-      // Spread gun: five pellets in a wide fan.
-      for (let i = -2; i <= 2; i++) shoot(i * 0.16 + (g.rng.next() - 0.5) * 0.04, 280 + g.rng.next() * 30, 0.42, 1, 'pellet');
+      // Spread gun: pellets in a wide fan.
+      const n = tune.spreadPellets;
+      for (let i = 0; i < n; i++) shoot((i - (n - 1) / 2) * tune.spreadAngle + (g.rng.next() - 0.5) * 0.04, 280 + g.rng.next() * 30, 0.42, tune.spreadDamage, 'pellet');
       sfx('shotgun');
       g.shake = Math.max(g.shake, 0.05);
     } else if (g.weapon === 'M') {
       // Machine gun: rapid fire that sweeps straight, up, down, and repeats.
-      const sweep = [0, -0.22, 0.22];
-      shoot(sweep[p.burstStep++ % sweep.length], 340, 0.8, 1, 'bullet');
+      const sweep = [0, -tune.mgSweep, tune.mgSweep];
+      shoot(sweep[p.burstStep++ % sweep.length], 340, 0.8, tune.mgDamage, 'bullet');
       sfx('mg');
     } else if (g.weapon === 'N') {
-      shoot((g.rng.next() - 0.5) * 0.06, 320, 0.7, 1, 'nail');
+      shoot((g.rng.next() - 0.5) * 0.06, 320, 0.7, tune.nailDamage, 'nail');
       sfx('nail');
     } else if (g.weapon === 'T') {
-      shoot((g.rng.next() - 0.5) * 0.35, 150 + g.rng.next() * 40, 0.32, 0.45, 'flame', 99);
+      shoot((g.rng.next() - 0.5) * 0.35, 150 + g.rng.next() * 40, 0.32, tune.torchDamage, 'flame', 99);
       if (g.time % 0.15 < STEP) sfx('torch');
     } else {
-      shoot(0, 340, 0.9, 5, 'slug', 2);
+      shoot(0, 340, 0.9, tune.slugDamage, 'slug', tune.slugPierce);
       sfx('slug');
       g.shake = Math.max(g.shake, 0.08);
     }
@@ -676,10 +670,10 @@ export function createGame(save) {
       disguised: !!sp.disguised,
       revealed: !sp.disguised,
       // A few hits at most: this is a shoot-'em-up.
-      hp: sp.type === 'child' ? 1 : sp.type === 'gunner' || sp.type === 'snatcher' || tunnel ? 2 : 1,
+      hp: sp.type === 'child' ? 1 : (sp.type === 'gunner' || sp.type === 'snatcher' || tunnel ? 2 : 1) * tune.enemyHp,
       walk: 0,
       timer: 1 + g.rng.next() * 2,
-      fireTimer: 1 + g.rng.next() * g.stage.diff.fireDelay,
+      fireTimer: 1 + (g.rng.next() * g.stage.diff.fireDelay) / tune.enemyFireRate,
       glance: 0,
       alert: 0,
       anim: g.rng.next() * 2,
@@ -710,7 +704,7 @@ export function createGame(save) {
     g.waveTimer -= dt;
     if (g.waveTimer > 0) return;
     const d = g.stage.diff;
-    g.waveTimer = d.waveDelay * (0.7 + g.rng.next() * 0.6);
+    g.waveTimer = (d.waveDelay / tune.waveRate) * (0.7 + g.rng.next() * 0.6);
     if (g.cam.x + g.W > (g.area.exit.c0 - 4) * TILE) return;
     const behind = g.rng.chance(0.2);
     const x = behind ? g.cam.x + 4 : g.cam.x + g.W + 8;
@@ -737,16 +731,17 @@ export function createGame(save) {
       burst(a.x, a.y - 12, '#d82800', 12);
       sfx('innocent');
       g.stageStats.innocents++;
-      g.addScore(-500);
-      addText(a.x, a.y - 30, 'INNOCENT! -1 HEART', '#fc7460', 1.6);
-      hurtPlayer(true);
+      g.addScore(-tune.innocentPoints);
+      const lost = tune.innocentDamage;
+      addText(a.x, a.y - 30, lost ? `INNOCENT! -${lost} HEART${lost > 1 ? 'S' : ''}` : 'INNOCENT!', '#fc7460', 1.6);
+      hurtPlayer(true, lost);
       return;
     }
     burst(a.x, a.y - 12, '#58d854', 14, 100);
     sfx('die');
     if (!byPlayer) return;
     g.stageStats.lizards++;
-    let points = a.type === 'gunner' ? 150 : 100;
+    let points = Math.round(tune.lizardPoints * (a.type === 'gunner' ? 1.5 : 1));
     if (a.caught) {
       points += 200;
       addText(a.x, a.y - 30, 'SPOTTED! +' + points, '#58d854');
@@ -758,7 +753,7 @@ export function createGame(save) {
       return;
     }
     // In the sewers they sometimes drop something.
-    if (laneOf(a.y) === 1 && g.rng.chance(0.09)) {
+    if (laneOf(a.y) === 1 && g.rng.chance(tune.dropChance)) {
       const kind = g.rng.pick(['+', 'H', ...WEAPONS, ...WEAPONS]);
       g.pickups.push({ kind, x: a.x, y: a.y - 8, vy: -120, hidden: false, taken: false, dropped: true });
     }
@@ -838,10 +833,11 @@ export function createGame(save) {
 
   function trySnatch(dt) {
     if (g.area.kind !== 'street') return;
+    if (tune.snatchRate <= 0) return;
     g.snatchTimer -= dt;
     if (g.snatchTimer > 0) return;
     const n = g.stageNum;
-    g.snatchTimer = Math.max(8, 17 - n) * (0.8 + g.rng.next() * 0.4);
+    g.snatchTimer = (Math.max(8, 17 - n) / tune.snatchRate) * (0.8 + g.rng.next() * 0.4);
     const active = g.actors.filter((a) => a.type === 'snatcher').length;
     if (active >= (n >= 4 ? 2 : 1)) return;
     const kids = g.actors.filter((a) => a.type === 'child' && !a.carriedBy && onScreen(a, 24) && laneOf(a.y) === 0);
@@ -865,7 +861,7 @@ export function createGame(save) {
     a.child = null;
     kid.carriedBy = null;
     g.stageStats.saved++;
-    g.addScore(500);
+    g.addScore(tune.savedPoints);
     if (laneOf(a.y) === 1 || g.area.kind !== 'street') {
       // Down in the sewers: beam them home.
       kid.dead = true;
@@ -878,7 +874,7 @@ export function createGame(save) {
       kid.panic = true;
     }
     sfx('found');
-    addText(a.x, a.y - 44, 'CHILD SAVED! +500', '#88ff70', 1.6);
+    addText(a.x, a.y - 44, `CHILD SAVED! +${tune.savedPoints}`, '#88ff70', 1.6);
   }
 
   function childLost(a) {
@@ -887,10 +883,10 @@ export function createGame(save) {
     a.child = null;
     kid.dead = true;
     g.stageStats.lost++;
-    g.addScore(-1000);
+    g.addScore(-tune.lostPoints);
     g.portalFx.push({ x: a.x, y: a.y - 11, t: 0 });
     sfx('innocent');
-    g.banner = { title: 'A CHILD WAS TAKEN', sub: 'DRAGGED DOWN TO THE NEST. -1000', t: 2.5 };
+    g.banner = { title: 'A CHILD WAS TAKEN', sub: `DRAGGED DOWN TO THE NEST. -${tune.lostPoints}`, t: 2.5 };
   }
 
   function updateSnatcher(a, dt) {
@@ -936,9 +932,9 @@ export function createGame(save) {
       }
     } else {
       // Run for the den.
-      a.vx = a.face * (d.enemySpeed + 5);
+      a.vx = a.face * (d.enemySpeed * tune.enemySpeed + 5);
       a.fled += Math.abs(a.vx) * dt;
-      if (a.fled > 18 * TILE) {
+      if (a.fled > tune.snatchEscape * TILE) {
         childLost(a);
         a.gone = true;
         return;
@@ -961,10 +957,10 @@ export function createGame(save) {
     }
     applyPhysics(a, dt, g.area);
     // Get too close and they drop the act.
-    const near = Math.abs(p.x - a.x) < 70 && Math.abs(p.y - a.y) < 40;
+    const near = Math.abs(p.x - a.x) < tune.revealDistance && Math.abs(p.y - a.y) < 40;
     if (near) {
       a.alert += dt;
-      if (a.alert > 0.45) reveal(a);
+      if (a.alert > tune.revealTime) reveal(a);
     } else a.alert = Math.max(0, a.alert - dt);
   }
 
@@ -984,7 +980,7 @@ export function createGame(save) {
     if (!a.charging) a.face = dir;
     // Charging grunts run past the player, Contra style, until they turn.
     if (a.charging && Math.abs(p.x - a.x) > 120 && Math.sign(p.x - a.x) !== a.face) a.charging = false;
-    a.vx = dir * d.enemySpeed;
+    a.vx = dir * d.enemySpeed * tune.enemySpeed;
     const hitWall = applyPhysics(a, dt, g.area);
     if (a.onGround && (hitWall || (!floorAhead(a, g.area, dir) && g.rng.chance(0.7)))) a.vy = -228;
   }
@@ -998,7 +994,7 @@ export function createGame(save) {
     a.fireTimer -= dt;
     const onScreen = a.x > g.cam.x && a.x < g.cam.x + g.W;
     if (a.fireTimer <= 0 && onScreen && sameLane(a) && Math.abs(p.x - a.x) < g.W * 0.7) {
-      a.fireTimer = d.fireDelay * (0.8 + g.rng.next() * 0.4);
+      a.fireTimer = (d.fireDelay / tune.enemyFireRate) * (0.8 + g.rng.next() * 0.4);
       const ox = a.x + a.face * 7;
       const oy = a.y - 15;
       const dx = p.x - ox;
@@ -1007,12 +1003,12 @@ export function createGame(save) {
       let vy;
       if (Math.abs(dy) < 14) {
         // Level shots fly at chest height, so crouching dodges them.
-        vx = a.face * 105;
+        vx = a.face * 105 * tune.enemyShotSpeed;
         vy = 0;
       } else {
         const len = Math.hypot(dx, dy);
-        vx = (dx / len) * 95;
-        vy = (dy / len) * 95;
+        vx = (dx / len) * 95 * tune.enemyShotSpeed;
+        vy = (dy / len) * 95 * tune.enemyShotSpeed;
       }
       g.shots.push({ x: ox, y: oy, vx, vy, life: 4, r: 2 });
       sfx('plasma');
@@ -1037,8 +1033,8 @@ export function createGame(save) {
       vy: 0,
       face: -1,
       onGround: true,
-      hp: d.bossHp,
-      maxHp: d.bossHp,
+      hp: d.bossHp * tune.bossHp,
+      maxHp: d.bossHp * tune.bossHp,
       flash: 0,
       state: 'dormant',
       pattern: 'walk',
@@ -1048,7 +1044,7 @@ export function createGame(save) {
       name: g.stage.bossName,
     };
     g.actors.push(g.boss);
-    const n = Math.min(8, 5 + Math.floor(g.stageNum / 2));
+    const n = tune.cultists || Math.min(8, 5 + Math.floor(g.stageNum / 2));
     const spots = [];
     for (let i = 0; i < n; i++) {
       // Two arcs of worshippers either side of the altar.
@@ -1066,6 +1062,9 @@ export function createGame(save) {
   }
 
   function lob(x, y, tx, ty, flight = 0.9, gravity = 300) {
+    // Faster shots get there sooner, on a flatter arc.
+    flight /= tune.enemyShotSpeed;
+    gravity /= tune.enemyShotSpeed;
     g.shots.push({
       x,
       y,
@@ -1096,17 +1095,17 @@ export function createGame(save) {
     a.face = dx < 0 ? -1 : 1;
     if (a.role === 'priest') {
       // Keep some distance and lob fireballs.
-      a.vx = Math.abs(dx) < 60 ? -a.face * d.enemySpeed * 0.6 : 0;
+      a.vx = Math.abs(dx) < 60 ? -a.face * d.enemySpeed * tune.enemySpeed * 0.6 : 0;
       a.fireTimer -= dt;
       if (a.fireTimer <= 0) {
-        a.fireTimer = d.fireDelay * (0.9 + g.rng.next() * 0.4);
+        a.fireTimer = (d.fireDelay / tune.enemyFireRate) * (0.9 + g.rng.next() * 0.4);
         lob(a.x + a.face * 6, a.y - 16, p.x, p.y - 8);
         sfx('plasma');
       }
       const hitWall = applyPhysics(a, dt, g.area);
       if (hitWall) a.vx = 0;
     } else {
-      a.vx = a.face * d.enemySpeed * 1.1;
+      a.vx = a.face * d.enemySpeed * tune.enemySpeed * 1.1;
       const hitWall = applyPhysics(a, dt, g.area);
       if (a.onGround && hitWall) a.vy = -228;
     }
@@ -1149,14 +1148,14 @@ export function createGame(save) {
     }
     // Awake.
     const enraged = b.hp < b.maxHp * 0.5;
-    const speed = (24 + 2 * n) * (enraged ? 1.5 : 1);
+    const speed = (24 + 2 * n) * (enraged ? 1.5 : 1) * tune.bossSpeed;
     const mouth = { x: b.x + b.face * 14, y: b.y - 50 };
     const belly = { x: b.x + b.face * 8, y: b.y - 26 };
     const next = () => {
       const pool = ['fireballs', 'flame', 'stomp'];
       if (n >= 2 || enraged) pool.push('summon');
       b.pattern = 'walk';
-      b.timer = enraged ? 1.4 : 2.2;
+      b.timer = (enraged ? 1.4 : 2.2) / tune.bossAttackRate;
       b.next = g.rng.pick(pool);
       b.count = 0;
     };
@@ -1182,7 +1181,7 @@ export function createGame(save) {
         if (b.timer <= 0) {
           lob(belly.x, belly.y, p.x + (g.rng.next() - 0.5) * 40, p.y - 6, 0.8 + g.rng.next() * 0.3);
           sfx('torch');
-          b.timer = enraged ? 0.3 : 0.45;
+          b.timer = (enraged ? 0.3 : 0.45) / tune.bossAttackRate;
           if (++b.count >= (enraged ? 6 : 4)) next();
         }
         break;
@@ -1191,7 +1190,7 @@ export function createGame(save) {
         b.face = p.x < b.x ? -1 : 1;
         if (b.timer <= 0) {
           const ang = Math.atan2(p.y - 12 - mouth.y, p.x - mouth.x) + (g.rng.next() - 0.5) * 0.2;
-          g.shots.push({ x: mouth.x, y: mouth.y, vx: Math.cos(ang) * 140, vy: Math.sin(ang) * 140, life: 0.9, r: 2, fire: true });
+          g.shots.push({ x: mouth.x, y: mouth.y, vx: Math.cos(ang) * 140 * tune.enemyShotSpeed, vy: Math.sin(ang) * 140 * tune.enemyShotSpeed, life: 0.9, r: 2, fire: true });
           if (b.count % 4 === 0) sfx('torch');
           b.timer = 0.06;
           if (++b.count >= (enraged ? 26 : 18)) next();
@@ -1206,7 +1205,7 @@ export function createGame(save) {
           b.vx = 0;
           g.shake = 0.4;
           sfx('explode');
-          for (const dir of [-1, 1]) g.shots.push({ x: b.x + dir * 18, y: FLOOR_Y - 4, vx: dir * 120, vy: 0, life: 3, r: 3, fire: true });
+          for (const dir of [-1, 1]) g.shots.push({ x: b.x + dir * 18, y: FLOOR_Y - 4, vx: dir * 120 * tune.enemyShotSpeed, vy: 0, life: 3, r: 3, fire: true });
           next();
         }
         break;
@@ -1232,8 +1231,8 @@ export function createGame(save) {
     b.hp = 0;
     b.dead = true;
     g.bossDeadTimer = 2.5;
-    g.addScore(5000);
-    addText(b.x, b.y - 70, '+5000', '#f8d800', 2);
+    g.addScore(tune.bossPoints);
+    addText(b.x, b.y - 70, '+' + tune.bossPoints, '#f8d800', 2);
     sfx('explode');
     g.shots = [];
     for (const a of g.actors) if (a !== b && !isInnocent(a)) killActor(a, false);
@@ -1323,7 +1322,7 @@ export function createGame(save) {
       g.weapon = k.kind;
       addText(p.x, p.y - 30, WEAPON_INFO[k.kind].name, '#f8d800', 1.2);
     } else if (k.kind === '+') {
-      if (g.hearts < MAX_HEARTS) {
+      if (g.hearts < tune.maxHearts) {
         g.hearts++;
         addText(p.x, p.y - 30, '+1 HEART', '#fc7460');
       } else {
@@ -1452,7 +1451,8 @@ export function createGame(save) {
   /** Advances the game by one fixed step. */
   g.step = function (inp) {
     input = inp;
-    const dt = STEP;
+    const dt = STEP * tune.gameSpeed;
+    if (g.hearts > tune.maxHearts) g.hearts = tune.maxHearts;
     g.time += dt;
     if (g.shake > 0) g.shake -= dt;
     if (g.banner) {

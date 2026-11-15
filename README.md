@@ -98,6 +98,32 @@ The screen shows one world at a time, up close: the city, or the sewers once
 you portal below. If a snatcher drags a child into the other world, a red
 "HELP!" arrow at the screen edge points to it.
 
+### Settings
+
+**SETTINGS** on the title screen and the pause menu opens a page of sliders and
+switches, one tab per group. Changes apply at once, are saved on the device,
+and changed values are highlighted with a ↺ button to put each one back (or
+**RESET ALL**):
+
+- **Game**: game speed, starting stage, screen shake, sound and music volume
+- **Hero**: hearts, hearts lost per hit / pit / innocent (0 per hit makes you
+  invincible), invincibility time, starting hard hat, run speed, jump power,
+  gravity, tackle speed, length, cooldown and damage
+- **Weapons**: starting weapon, keep it after a game over, bullet speed and
+  range, and each gun's fire rate and damage (plus the spread gun's pellets
+  and spread, the machine gun's scatter and how many lizards slugs pierce),
+  and how often sewer lizards drop loot
+- **Shades & portal**: how long the shades last (with and without contacts),
+  recharge time, starting each stage with the shades or portal, portal cooldown
+- **Lizards**: health, speed, fire rate, shot speed, sewer ambushes, how close
+  and how long before a disguise drops, child snatchers (0 turns them off) and
+  how far a snatcher runs before it gets away
+- **Moloch**: idol health, speed and attack rate, number of cultists
+- **Score**: points for lizards, saved children and the idol, and the penalties
+
+Run speed and jump power only go up from the defaults, and gravity only down,
+so every stage can still be finished.
+
 ## Install on Android (APK)
 
 Every push to `main` builds a signed APK and publishes it as a GitHub Release.
@@ -140,6 +166,8 @@ npm run icons  # redraws the app icons (needs Playwright)
 - `web/js/hero.js`: the hero's pose and rifle muzzle, shared by the rules and the renderer
 - `web/js/audio.js`: sound effects and metal music (distorted power chords through an amp and cabinet, bass, lead guitar, drums) made with Web Audio
 - `web/fonts/`: the Russo One font, under the SIL Open Font License (`OFL.txt`)
+- `web/js/tuning.js`: every tweakable value, its range and default, saved on the device
+- `web/js/settings.js`: the settings screen built from those values
 - `web/js/input.js`: keyboard and touch controls
 - `test/stage.test.mjs`: checks both lanes of every stage can be finished with the player's jump
 - `android/`: Android app that bundles `web/` into a full-screen WebView

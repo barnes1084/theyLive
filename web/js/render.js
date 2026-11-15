@@ -8,6 +8,7 @@ import { drawFigure, drawHeroBall, drawMoloch, drawTile, drawHeart, drawHardHat,
 import { heroPose, heroMuzzle } from './hero.js';
 import { hash } from './rng.js';
 import { WEAPON_INFO, VIEW_H, PEDESTAL_H } from './game.js';
+import { tune } from './tuning.js';
 
 const H = VIEW_H;
 const LANE_H = LANE_ROWS * TILE;
@@ -87,8 +88,8 @@ export function render(ctx, g, usingTouch) {
   }
 
   const shaking = g.shake > 0;
-  const sx = shaking ? (Math.random() - 0.5) * 3 : 0;
-  const sy = shaking ? (Math.random() - 0.5) * 2 : 0;
+  const sx = shaking ? (Math.random() - 0.5) * 3 * tune.shake : 0;
+  const sy = shaking ? (Math.random() - 0.5) * 2 * tune.shake : 0;
   const camX = g.cam.x;
   const camY = g.cam.y;
   const truth = g.glasses.on;
@@ -1166,9 +1167,10 @@ function drawLaneAlerts(ctx, g, camX, camY) {
 
 function drawHud(ctx, g) {
   const W = g.screenW;
-  panel(ctx, 3, 3, 62, 15);
-  for (let i = 0; i < 4; i++) drawHeart(ctx, 6 + i * 13, 5.5, 10.5, '#e83838', i >= g.hearts);
-  if (g.armor) drawHardHat(ctx, 54, 4.5, 9);
+  const hearts = tune.maxHearts;
+  panel(ctx, 3, 3, Math.max(62, 8 + hearts * 13 + (g.armor ? 12 : 0)), 15);
+  for (let i = 0; i < hearts; i++) drawHeart(ctx, 6 + i * 13, 5.5, 10.5, '#e83838', i >= g.hearts);
+  if (g.armor) drawHardHat(ctx, Math.max(54, 6 + hearts * 13), 4.5, 9);
 
   const gl = g.glasses;
   if (gl.have) {

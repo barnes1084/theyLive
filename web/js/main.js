@@ -3,20 +3,24 @@ import { createGame, loadSave, VIEW_H } from './game.js';
 import { LANE_ROWS, TILE } from './stage.js';
 import { render } from './render.js';
 import { input, setupInput } from './input.js';
-import { unlockAudio, setSound, setMusic } from './audio.js';
+import { unlockAudio, setVolumes } from './audio.js';
+import { tune, loadTuning, saveTuning } from './tuning.js';
+import { openSettings, isSettingsOpen } from './settings.js';
 
 const canvas = document.getElementById('screen');
 const ctx = canvas.getContext('2d');
 
 const save = loadSave();
-setSound(save.sound);
-setMusic(save.music);
+// Sound and music used to be on/off switches in the save.
+if (!('sfxVolume' in loadTuning())) {
+  if (save.sound === false) tune.sfxVolume = 0;
+  if (save.music === false) tune.musicVolume = 0;
+  saveTuning();
+}
+const applyVolumes = () => setVolumes(tune.sfxVolume, tune.musicVolume);
+applyVolumes();
 const game = createGame(save);
-game.onSettingsChanged = () => {
-  setSound(save.sound);
-  setMusic(save.music);
-  resize();
-};
+game.openSettings = () => openSettings(applyVolumes);
 
 /**
  * The screen (HUD and menus) is always VIEW_H units tall; its width follows
@@ -81,7 +85,8 @@ function frame(now) {
   last = now;
   while (acc >= game.STEP) {
     input.update();
-    game.step(input);
+    // The game holds still while the settings are open.
+    if (!isSettingsOpen()) game.step(input);
     acc -= game.STEP;
   }
   const playing = game.mode === 'play' || game.mode === 'transition';

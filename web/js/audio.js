@@ -2,8 +2,9 @@
 
 let ctx = null;
 let master, sfxBus, musicBus, noiseBuffer;
-let soundOn = true;
-let musicOn = true;
+let sfxVolume = 1;
+let musicVolume = 1;
+const MUSIC_LEVEL = 0.55;
 
 function init() {
   if (ctx) return true;
@@ -14,10 +15,10 @@ function init() {
   master.gain.value = 0.7;
   master.connect(ctx.destination);
   sfxBus = ctx.createGain();
-  sfxBus.gain.value = soundOn ? 1 : 0;
+  sfxBus.gain.value = sfxVolume;
   sfxBus.connect(master);
   musicBus = ctx.createGain();
-  musicBus.gain.value = musicOn ? 0.55 : 0;
+  musicBus.gain.value = musicVolume * MUSIC_LEVEL;
   musicBus.connect(master);
   noiseBuffer = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
@@ -31,14 +32,12 @@ export function unlockAudio() {
   if (ctx.state === 'suspended') ctx.resume();
 }
 
-export function setSound(on) {
-  soundOn = on;
-  if (sfxBus) sfxBus.gain.value = on ? 1 : 0;
-}
-
-export function setMusic(on) {
-  musicOn = on;
-  if (musicBus) musicBus.gain.value = on ? 0.55 : 0;
+/** Volumes from 0 (off) to 1. */
+export function setVolumes(sfx, music) {
+  sfxVolume = sfx;
+  musicVolume = music;
+  if (sfxBus) sfxBus.gain.value = sfx;
+  if (musicBus) musicBus.gain.value = music * MUSIC_LEVEL;
 }
 
 // ---------- Building blocks ----------
@@ -145,7 +144,7 @@ const SFX = {
 };
 
 export function sfx(name) {
-  if (!ctx || !soundOn || ctx.state !== 'running') return;
+  if (!ctx || sfxVolume <= 0 || ctx.state !== 'running') return;
   SFX[name]?.();
 }
 
@@ -421,7 +420,7 @@ function scheduleStep(song, i, t) {
 }
 
 function tick() {
-  if (!ctx || !current || ctx.state !== 'running') return;
+  if (!ctx || !current || ctx.state !== 'running' || musicVolume <= 0) return;
   if (!rig) rig = makeRig();
   const song = SONGS[current];
   const len = 60 / song.bpm / 4;
