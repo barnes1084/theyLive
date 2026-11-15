@@ -51,7 +51,8 @@ export const input = {
 export function setupInput(touchLayer, onTap) {
   addEventListener('keydown', (e) => {
     const name = KEYS[e.code];
-    if (!name) return;
+    // Leave keys alone while the settings screen has them.
+    if (!name || e.target.closest?.('#settings')) return;
     e.preventDefault();
     if (!e.repeat) input.latch[name] = true;
     input.keys[name] = true;
