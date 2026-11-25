@@ -103,11 +103,15 @@ jobs:
           ~/godot/godot --headless --path . --install-android-build-template --export-release Android build/theylive.apk
           ls -la build
           test -s build/theylive.apk
-          # The AdMob app ID must be in the app's manifest.
+          # The AdMob app ID (from project.godot) must be in the app's manifest.
+          # Without one there, the plugin uses Google's test app ID (Godot
+          # doesn't store a setting equal to its default).
+          app_id=$(sed -n 's/^general\/android\/app_id="\(.*\)"/\1/p' project.godot)
+          app_id=${app_id:-ca-app-pub-3940256099942544~3347511713}
           aapt=$(ls -d $ANDROID_SDK_ROOT/build-tools/*/ | sort -V | tail -1)aapt
           manifest=$("$aapt" dump xmltree build/theylive.apk AndroidManifest.xml)
           echo "$manifest" | grep -A2 "APPLICATION_ID" || true
-          if ! echo "$manifest" | grep -F "ca-app-pub-7029020789856799~5745772268" > /dev/null; then
+          if ! echo "$manifest" | grep -F "$app_id" > /dev/null; then
             echo "::error::The AdMob app ID is missing from the APK's manifest."
             exit 1
           fi
