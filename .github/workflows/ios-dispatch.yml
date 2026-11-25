@@ -1,0 +1,85 @@
+name: Build iOS (find a Mac)
+
+# GitHub's Mac runners are sometimes unavailable: a job asking for one waits,
+# and after a while GitHub cancels it. This workflow runs on Linux (always
+# available) and starts "Build iOS" on one Mac type after another until one
+# actually begins running, then stops; the iOS build carries on by itself.
+# Start it from Actions -> Build iOS (find a Mac) -> Run workflow. It also
+# runs when the iOS build setup changes.
+on:
+  workflow_dispatch:
+    inputs:
+      upload:
+        description: Upload to TestFlight (needs the Apple secrets)
+        type: boolean
+        default: true
+  push:
+    paths:
+      - .github/workflows/ios.yml
+      - .github/workflows/ios-dispatch.yml
+      - tools/patch_ios_project.gd
+      - tools/ios_simulator_smoke_test.sh
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  find-a-mac:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      # Mac types to try, in order, and how long to wait for each to start.
+      # (They need Xcode 26 or newer: macos-26 has it as standard, macos-15 as
+      # an extra install.)
+      RUNNERS: macos-26 macos-15 macos-latest macos-26-intel macos-15-intel
+      WAIT_SECONDS: 600
+      UPLOAD: ${{ github.event_name == 'workflow_dispatch' && inputs.upload || false }}
+    steps:
+      - name: Start "Build iOS" on the first Mac type that comes online
+        run: |
+          ref="${GITHUB_REF_NAME}"
+          for runner in $RUNNERS; do
+            before=$(gh run list --workflow ios.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+            echo "::group::Trying $runner"
+            gh workflow run ios.yml --ref "$ref" -f runner="$runner" -f upload="$UPLOAD"
+            # Find the run we just started.
+            run=""
+            for i in $(seq 1 30); do
+              sleep 5
+              run=$(gh run list --workflow ios.yml --event workflow_dispatch --limit 1 --json databaseId --jq '.[0].databaseId // 0')
+              [ "$run" != "$before" ] && [ "$run" != "0" ] && break
+              run=""
+            done
+            if [ -z "$run" ]; then
+              echo "Couldn't find the run that was started; trying the next Mac type."
+              echo "::endgroup::"
+              continue
+            fi
+            echo "Run: https://github.com/$GH_REPO/actions/runs/$run"
+            # Started = the job has begun running its steps on a Mac.
+            waited=0
+            while [ $waited -lt $WAIT_SECONDS ]; do
+              sleep 20
+              waited=$((waited + 20))
+              state=$(gh run view "$run" --json status,jobs --jq '[.status, ((.jobs[0].steps // []) | map(select(.status != "pending")) | length)] | @tsv')
+              status=$(echo "$state" | cut -f1)
+              steps=$(echo "$state" | cut -f2)
+              echo "$runner after ${waited}s: run $status, $steps steps started"
+              if [ "${steps:-0}" -gt 0 ]; then
+                echo "::endgroup::"
+                echo "::notice::Got a Mac: $runner. Build iOS is running: https://github.com/$GH_REPO/actions/runs/$run"
+                exit 0
+              fi
+              if [ "$status" = "completed" ]; then
+                break
+              fi
+            done
+            echo "No $runner Mac within ${WAIT_SECONDS}s; cancelling that attempt."
+            gh run cancel "$run" || true
+            echo "::endgroup::"
+          done
+          echo "::error::None of these Mac types came online: $RUNNERS. Try again later."
+          exit 1
