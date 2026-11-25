@@ -1,11 +1,14 @@
 # They Live
 
-A Contra-style run-and-gun for Android, inspired by the cult film, with smooth
-vector graphics and a synthesized metal soundtrack.
-You're a drifter construction worker with a wrestler's build, a blond mullet, a white tank top and a spread gun. Somewhere on the street is a pair
-of sunglasses. Put them on and the city turns black and white, the billboards
-show their real messages (OBEY, CONSUME, SLEEP), and some of the people around
-you turn out to be lizards.
+A Contra-style run-and-gun for Android and iPhone, inspired by the cult film.
+Built with [Godot 4](https://godotengine.org/), the same way as Snowball Fight:
+same project layout, settings system, tests, builds and store pipeline.
+
+You're a drifter construction worker with a wrestler's build, a blond mullet,
+a white tank top and a spread gun. Somewhere on the street is a pair of
+sunglasses. Put them on and the city turns black and white, the billboards
+show their real messages (OBEY, CONSUME, SLEEP), and some of the people
+around you turn out to be lizards.
 
 ## How it plays
 
@@ -13,162 +16,129 @@ Every stage is randomly generated, and the stages never end. Each stage has
 two worlds along the same street: the **city**, and the **sewers** underneath
 it. The screen shows the one you're in.
 
-1. **The city.** Pedestrians walk around, and some of them are lizards in
-   disguise. Find the sunglasses (in a box outside a church) to tell them apart.
-   Shooting an innocent person costs a heart. Pits are full of wet cement.
-2. **The portal device.** One disguised lizard is carrying it. With the glasses
-   on you can see it glowing purple in its hand. Kill that lizard and grab the
-   device, then use it to warp between the city and the sewers as often as you
-   like (it needs a moment to recharge between jumps).
-3. **The sewers.** This is where all the **weapons and hearts** are. Down here
-   the lizards don't bother hiding, and they keep coming, Contra style, while
-   you're below. Watch out for the sludge.
+1. **The city.** People walk around, and some of them are lizards in
+   disguise. Find the sunglasses (in a box outside a church) to tell them
+   apart. Shooting an innocent person costs a heart. Pits are full of wet cement.
+2. **The portal device.** One disguised lizard is carrying it; with the
+   glasses on, it's the one with purple brackets. Kill it and grab the device,
+   then use it to warp between the city and the sewers (it recharges between jumps).
+3. **The sewers.** This is where all the **weapons and hearts** are. Down
+   here the lizards don't bother hiding, and they keep coming while you're below.
 4. **Child snatchers.** Kids play on the street, and every so often a lizard
-   portals up next to one, grabs them and warps back down to the sewers, then
-   runs for its nest. Shoot it before it warps (it holds still for a moment
-   while the child struggles), or follow it down with the portal device and
-   shoot it there. Saved kids are beamed home safe (+500 and a bigger stage
-   bonus). If a snatcher gets away, the child is gone (-1000). The stage-clear
-   screen counts children saved and taken.
-5. **The temple of Moloch.** A door at the end of either lane leads to a
-   sacrifice ceremony: robed lizard cultists chanting before a stone idol of
-   Moloch. Start shooting and they fight back (zealots rush you, priests lob
-   fireballs). The idol can't be hurt while any of them live. Kill them all
-   and Moloch comes to life: it stomps after you, spits fireballs from its
-   furnace belly, breathes fire, leaps to send shockwaves along the floor and
-   calls in more cultists, getting faster when badly hurt. Destroy it to clear
-   the stage.
+   portals up next to one, grabs them and warps down to the sewers. Shoot it
+   before it warps, or follow it down and shoot it there. Saved kids are
+   beamed home (+500); if a snatcher gets away, the child is gone (-1000).
+5. **The temple of Moloch.** The door at the end of either lane leads to a
+   ceremony: robed lizard cultists chanting before a bronze idol. Start
+   shooting and they fight back (zealots rush you, priests lob fireballs).
+   The idol can't be hurt while any of them live. Kill them all and Moloch
+   comes to life: it stomps after you, spits fireballs from its furnace belly,
+   breathes fire, leaps to send shockwaves along the floor and calls in more
+   cultists, getting angrier when badly hurt. Destroy it to clear the stage.
 
-Then the next stage starts, a bit harder. The lizards take back your shades
-and the portal device at the start of every stage, so you have to find them again.
+The lizards take back your shades and the portal device at the start of
+every stage, so you have to find them again.
 
-### The sunglasses
-
-- Toggle them on and off (**G** key, or the shades button).
-- Wearing them drains the **headache meter**. If it runs out, they come off and
-  you can't use them again until it's half recharged.
-- Disguised lizards give themselves away now and then: they stop and stare at
-  you, and their mask slips for a moment.
-- Get too close to a disguised lizard and it attacks. Shoot it while it's still
-  in disguise for a **SPOTTED!** bonus.
-- The lizard carrying the portal device has purple brackets.
-- A hidden stash in the sewers (a heart, a hard hat or contact lenses) only
-  shows up with the glasses on.
-
-### Pickups
-
-All of these are in the sewers, apart from what lizards drop. You start every
-run with the **spread gun**, a wide five-pellet fan; a weapon pickup replaces
-it until you grab another. Most lizards go down in one or two hits.
-
-| Pickup | What it does |
-|---|---|
-| **P** Portal device | Warp between the city and the sewers (dropped by one lizard) |
-| **M** Machine gun | Rapid fire that sweeps straight, angled up, angled down, and repeats |
-| **N** Nail gun | Fast fire, long range |
-| **T** Torch | Short-range flamethrower that passes through enemies |
-| **S** Slugs | Hard-hitting shots that pass through up to two enemies |
-| Heart | Restores one heart |
-| Hard hat | Absorbs one hit |
-| **C** Contact lenses | The glasses drain half as fast for the rest of the run |
+- **The sunglasses** (shades button, or G) drain a headache meter. If it runs
+  out they come off until it's half recharged. Disguised lizards give
+  themselves away now and then: they stop and stare, and the mask slips. Get
+  too close and they attack; shoot one still in disguise for a **SPOTTED!**
+  bonus. A hidden stash in the sewers only shows with the shades on.
+- **Pickups** (all in the sewers, apart from what lizards drop): **M**
+  machine gun, **N** nail gun, **T** torch (passes through enemies), **S**
+  slugs (pierce two), hearts, a hard hat (absorbs one hit), **C** contact
+  lenses (shades last twice as long), and **P** the portal device.
+- **Tackle** is a quick shoulder charge: you can't be hurt during it, it
+  flattens most lizards, never hurts bystanders, and knocks a child loose
+  from a snatcher.
 
 ### Controls
 
 | | Touch | Keyboard |
 |---|---|---|
-| Move / aim (8 directions) | Stick on the left | Arrows or WASD |
+| Move / aim (8 directions) | Stick on the left (it appears where your thumb lands) | Arrows or WASD |
 | Jump (down + jump drops through scaffolding) | **A** | Z, J or Space |
 | Fire (hold) | **B** | X or K |
 | Tackle | **TACKLE** | F or H |
-| Lock and aim: stand still, the stick only aims | **LOCK** (tap to turn on, tap again to turn off) | Hold Shift or R |
-| Sunglasses | Shades button | G, C or L |
-| Portal device | Purple portal button (appears once you have it) | V, Q or E |
-| Pause | ❚❚ at the top right | P or Esc |
+| Lock: stand still, the stick only aims | **LOCK** (tap on, tap off) | Hold Shift or R |
+| Sunglasses | **SHADES** (once you have them) | G, C or L |
+| Portal device | **PORTAL** (once you have it) | V, Q or E |
+| Pause | ❚❚ at the top right, or the back button | P or Esc |
 
-Hold down to crouch under shots that fly straight at you.
+Roll your thumb from **B** onto **A** to keep firing while you jump.
+Left-handed? Swap the sides in the settings.
 
-**Tackle** is a quick shoulder charge. You can't be hurt during it, it
-flattens most lizards in one hit, and tackling a snatcher knocks the child out
-of its grip so they can run away. It recharges in under a second and works in
-midair too.
+## Settings
 
-### View
+**SETTINGS** on the title screen and the pause menu. Store builds show only
+the player settings (sound, music, vibration, screen shake, control sizes and
+sides). The sideload APK shows every developer setting: game speed, hearts,
+damage, run speed, jump, gravity, the tackle, every weapon, the shades and
+portal, the lizards, the snatchers, Moloch, and the scores. Tapping the title
+seven times toggles developer mode in the editor and on desktop.
 
-The screen shows one world at a time, up close: the city, or the sewers once
-you portal below. If a snatcher drags a child into the other world, a red
-"HELP!" arrow at the screen edge points to it.
+The defaults live in `default_settings.cfg`: edit a number and the next build
+uses it (or tune on the phone and tap COPY AS DEFAULTS, then paste over the
+file). After adding a setting, rewrite the file with
+`godot --headless --path . -s res://tools/write_default_settings.gd`.
 
-### Settings
+## Builds
 
-**SETTINGS** on the title screen and the pause menu opens a page of sliders and
-switches, one tab per group. Changes apply at once, are saved on the device,
-and changed values are highlighted with a ↺ button to put each one back (or
-**RESET ALL**):
+Exactly as in Snowball Fight:
 
-- **Game**: game speed, starting stage, screen shake, sound and music volume
-- **Hero**: hearts, hearts lost per hit / pit / innocent (0 per hit makes you
-  invincible), invincibility time, starting hard hat, run speed, jump power,
-  gravity, tackle speed, length, cooldown and damage
-- **Weapons**: starting weapon, keep it after a game over, bullet speed and
-  range, and each gun's fire rate and damage (plus the spread gun's pellets
-  and spread, the machine gun's scatter and how many lizards slugs pierce),
-  and how often sewer lizards drop loot
-- **Shades & portal**: how long the shades last (with and without contacts),
-  recharge time, starting each stage with the shades or portal, portal cooldown
-- **Lizards**: health, speed, fire rate, shot speed, sewer ambushes, how close
-  and how long before a disguise drops, child snatchers (0 turns them off) and
-  how far a snatcher runs before it gets away
-- **Moloch**: idol health, speed and attack rate, number of cultists
-- **Score**: points for lizards, saved children and the idol, and the penalties
+- **Android** (`.github/workflows/android.yml`): every push runs the tests and
+  the touch check, builds the sideload APK ("They Live Dev",
+  `io.github.barnes1084.theylive.dev`, signed with `android/theylive.jks`) and
+  the Google Play bundle (`io.github.barnes1084.theylive`, signed with your
+  upload key once the `PLAY_UPLOAD_*` secrets are set). Pushes to `main` also
+  publish the APK as a GitHub release.
+- **iOS** (`.github/workflows/ios.yml`, started by `ios-dispatch.yml`):
+  exports the Xcode project, builds it, launches it on a simulator, and with
+  the `APPLE_TEAM_ID` and `ASC_*` secrets signs it and uploads it to TestFlight.
+- **Version:** the `VERSION` file is the version players see on both stores.
 
-Run speed and jump power only go up from the defaults, and gravity only down,
-so every stage can still be finished.
+See `store/STORES.md` for setting up Google Play, the App Store and AdMob.
 
-## Install on Android (APK)
+### Install the sideload APK
 
-Every push to `main` builds a signed APK and publishes it as a GitHub Release.
+1. On your phone, open the latest release of this repository and download
+   **theylive.apk**.
+2. Open it and allow installs from your browser if asked, then **Install**.
+   (It's a different app from the old web version: uninstall that one if you
+   still have it.)
 
-1. On your phone, open <https://github.com/barnes1084/theyLive/releases/latest>
-   and download **theylive.apk**.
-2. Open the downloaded file. The first time, Android asks you to allow installs
-   from your browser or file manager: allow it, then tap **Install**.
-3. Later builds install over the old one and keep your best score.
-
-Pushes to other branches build the APK too; it's attached to the
-**Build Android APK** workflow run as the `theylive-apk` artifact (it downloads
-as a zip).
-
-The app is a thin WebView wrapper (`android/`) around the game in `web/`, so
-there's one codebase for the phone and the browser. To build it yourself with
-the Android SDK installed: `cd android && ./gradlew assembleRelease`.
-
-### Signing
-
-APKs are signed with `android/app/theylive.jks`, which is committed so every
-build has the same signature and updates install in place. Anyone with this
-repo can sign an APK as this app. That's fine for a personal, sideloaded game,
-but use a private key before publishing it anywhere.
-
-## Run locally
+## Running and testing
 
 ```sh
-npm start      # serves web/ at http://localhost:8080
-npm test       # checks generated stages can always be finished
-npm run icons  # redraws the app icons (needs Playwright)
+godot --path .                                           # play on desktop
+godot --headless --path . -s res://tests/run_tests.gd    # the tests
+godot --path . -- --shot=play,1,/tmp/shot.png            # a screenshot (title, play, truth, sewer, boss, awake; add ,touch for the controls)
+godot --path . -- --shot=input,1                         # the touch check
 ```
+
+The tests check every setting is used and sane, every stage (80 of them
+across four runs) is deterministic and can be finished in both lanes, the
+core rules (shades, innocents, disguises, the portal, snatchers, the idol),
+that every pose the game draws has art, and that the game plays on autopilot.
+
+## Art and sound
+
+- **Characters**: the sheets in `art-source/` are cut into one image per pose
+  by `python3 tools/cut_sprites.py` (writes `assets/sprites/` and
+  `meta.json`). Each sheet's layout is listed at the top of that script.
+- **Icon**: `python3 tools/make_icon.py`.
+- **Music and sound effects**: `python3 tools/make_audio.py` renders them all:
+  original metal loops (title, streets, sewers, temple) played by a
+  synthesized band, plus every sound effect.
+- **Font**: Russo One, under the SIL Open Font License (`assets/fonts/OFL.txt`).
 
 ## Layout
 
-- `web/js/stage.js`: endless stage generator, two lanes per level (shared with the tests)
-- `web/js/game.js`: game rules (player, weapons, glasses, portal device, enemies, boss, flow)
-- `web/js/render.js`: drawing at the screen's full resolution, parallax backgrounds, sewer and torch lighting, the black-and-white "truth" view, HUD and menus
-- `web/js/art.js`: the vector art: jointed, animated figures (the hero, people, lizards, cultists), the Moloch idol, and the tiles
-- `web/js/hero.js`: the hero's pose and rifle muzzle, shared by the rules and the renderer
-- `web/js/audio.js`: sound effects and metal music (distorted power chords through an amp and cabinet, bass, lead guitar, drums) made with Web Audio
-- `web/fonts/`: the Russo One font, under the SIL Open Font License (`OFL.txt`)
-- `web/js/tuning.js`: every tweakable value, its range and default, saved on the device
-- `web/js/settings.js`: the settings screen built from those values
-- `web/js/input.js`: keyboard and touch controls
-- `test/stage.test.mjs`: checks both lanes of every stage can be finished with the player's jump
-- `android/`: Android app that bundles `web/` into a full-screen WebView
-- `tools/icons.mjs`: generates the launcher and web icons
+- `scripts/stage.gd`: the endless stage generator (two lanes per street, and the temple)
+- `scripts/game.gd`: the rules: player, weapons, shades, portal, people, lizards, snatchers, Moloch, the flow, and the autopilot
+- `scripts/world.gd`: draws the world: city, sewers, temple, tiles, billboards, characters, shots, effects, the black-and-white truth view
+- `scripts/art.gd`: loads and draws the character sprites
+- `scripts/main.gd`: the loop, touch and keyboard controls, the HUD and the menus
+- `scripts/tune.gd`, `scripts/settings_ui.gd`: every setting, and the settings screen
+- `scripts/sfx.gd`, `scripts/ads.gd`, `scripts/ui.gd`, `scripts/progress.gd`: sound, ads, menu look, best scores
+- `tests/run_tests.gd`: the tests
